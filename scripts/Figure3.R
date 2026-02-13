@@ -704,36 +704,7 @@ secreted.prot <-  hpa$Gene[grep("Predicted secreted proteins", hpa$Protein.class
 
 
 
-# Supplementary Table 2 ####
 
-#CyTOF ICC
-df.cytof <- icc.df %>% filter(omic=="CyTOF") %>% arrange(desc(icc.icc))
-colnames(df.cytof) <- c("ICC", "Sex coefficient", "Age coefficient", "Sex p-value", "Age p-value", "Population")
-
-#RNA ICC
-df.rna <- icc.df %>% filter(omic=="RNA") %>% arrange(desc(icc.icc))
-colnames(df.rna) <- c("ICC", "Sex coefficient", "Age coefficient", "Sex p-value", "Age p-value", "Gene")
-
-#protein ICC
-df.protein <- icc.df %>% filter(omic=="Protein") %>% arrange(desc(icc.icc))
-colnames(df.protein) <- c("ICC", "Sex coefficient", "Age coefficient", "Sex p-value", "Age p-value", "Protein")
-
-#Manual annotation
-df <- immune_df 
-colnames(df) <- c("Gene", "Immune pathway", "Protein class")
-df <- df %>% filter(!`Immune pathway` %in% c("cGAS_STING", "IFN receptors", "Generic co-receptors", "ISGs", "TNF response", "cAMP_PKA_signaling", "Cytokines Chemokines"))
-
-wb <- createWorkbook()
-addWorksheet(wb, "Immune frequency ICC")
-addWorksheet(wb, "RNA-seq ICC")
-addWorksheet(wb, "Proteomics ICC")
-addWorksheet(wb, "Manual annotation")
-writeData(wb, "Immune frequency ICC", df.cytof[,1:6])
-writeData(wb, "RNA-seq ICC", df.rna[,1:6])
-writeData(wb, "Proteomics ICC", df.protein[,1:6])
-writeData(wb, "Manual annotation", df)
-
-saveWorkbook(wb, "Supplementary Table 21.xlsx", overwrite = TRUE)
 
 
 
@@ -867,3 +838,64 @@ for (prot in top.prot){
   dev.off()
   
 }
+
+#Plasma protein-immune composition correlation ####
+common.samples <- intersect(rownames(protein), rownames(cytof.group))
+
+cor.prot.pop <- cor(protein[common.samples,], cytof.group[common.samples,], method="spearman", use="complete.obs")
+
+df.cor <- data.frame()
+for (pop in colnames(cytof.group)){
+  r <- cor.prot.pop[,pop]  
+  df.cor <- rbind(df.cor, data.frame(r=r, protein=colnames(protein), pop=pop))
+}
+df.cor <- df.cor %>% filter(r>0.2) %>% arrange(pop, desc(r))
+
+df.cor$pop <- gsub("B_Cells", "Memory B cells", df.cor$pop)
+df.cor$pop <- gsub("Central_Memory_CD4", "T-cm CD4+", df.cor$pop)
+df.cor$pop <- gsub("Central_Memory_CD8", "T-cm CD8+", df.cor$pop)
+df.cor$pop <- gsub("Effector_Memory_CD8", "T-em CD8+", df.cor$pop)
+df.cor$pop <- gsub("Monocytes_classical", "Classical monocytes", df.cor$pop)
+df.cor$pop <- gsub("Monocytes_intermediate", "Intermediate monocytes", df.cor$pop)
+df.cor$pop <- gsub("Monocytes_nonclassical", "Nonclassical monocytes", df.cor$pop)
+df.cor$pop <- gsub("Myeloid_DC", "Myeloid DCs", df.cor$pop)
+df.cor$pop <- gsub("NK_Cells", "NK cells", df.cor$pop)
+df.cor$pop <- gsub("Naive_B_Cells", "Naive B cells", df.cor$pop)
+df.cor$pop <- gsub("Naive_CD4", "Naive CD4+ T cells", df.cor$pop)
+df.cor$pop <- gsub("Naive_CD8", "Naive CD8+ T cells", df.cor$pop)
+df.cor$pop <- gsub("TEMRA_CD4", "TEMRA CD4+ T cells", df.cor$pop)
+df.cor$pop <- gsub("TEMRA_CD8", "TEMRA CD8+ T cells", df.cor$pop)
+
+
+# Supplementary Table 2 ####
+
+#CyTOF ICC
+df.cytof <- icc.df %>% filter(omic=="CyTOF") %>% arrange(desc(icc.icc))
+colnames(df.cytof) <- c("ICC", "Sex coefficient", "Age coefficient", "Sex p-value", "Age p-value", "Population")
+
+#RNA ICC
+df.rna <- icc.df %>% filter(omic=="RNA") %>% arrange(desc(icc.icc))
+colnames(df.rna) <- c("ICC", "Sex coefficient", "Age coefficient", "Sex p-value", "Age p-value", "Gene")
+
+#protein ICC
+df.protein <- icc.df %>% filter(omic=="Protein") %>% arrange(desc(icc.icc))
+colnames(df.protein) <- c("ICC", "Sex coefficient", "Age coefficient", "Sex p-value", "Age p-value", "Protein")
+
+#Manual annotation
+df <- immune_df 
+colnames(df) <- c("Gene", "Immune pathway", "Protein class")
+df <- df %>% filter(!`Immune pathway` %in% c("cGAS_STING", "IFN receptors", "Generic co-receptors", "ISGs", "TNF response", "cAMP_PKA_signaling", "Cytokines Chemokines"))
+
+wb <- createWorkbook()
+addWorksheet(wb, "Immune frequency ICC")
+addWorksheet(wb, "RNA-seq ICC")
+addWorksheet(wb, "Proteomics ICC")
+addWorksheet(wb, "Manual annotation")
+addWorksheet(wb, "Corr proteome-immune comp")
+writeData(wb, "Immune frequency ICC", df.cytof[,1:6])
+writeData(wb, "RNA-seq ICC", df.rna[,1:6])
+writeData(wb, "Proteomics ICC", df.protein[,1:6])
+writeData(wb, "Manual annotation", df)
+writeData(wb, "Corr proteome-immune comp", df.cor)
+
+saveWorkbook(wb, "Supplementary Table 2.xlsx", overwrite = TRUE)
