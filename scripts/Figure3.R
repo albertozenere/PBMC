@@ -1,10 +1,3 @@
-rm(list = ls())
-
-# Setup ####
-path <- .libPaths()
-newpath <- "C:/Users/albze08/Desktop/R/mQTL"
-.libPaths(newpath)
-
 
 pack_R <- c("dplyr","ggplot2","ggrepel","umap", "edgeR",
             "RColorBrewer", "pheatmap", "tidyverse",
@@ -18,8 +11,6 @@ for (i in 1:length(pack_R)) {
   library(pack_R[i], character.only = TRUE)
 }
 
-setwd("C:/Users/albze08/Desktop/postDoc/wellness-rna/")
-
 set.seed(1)
 
 
@@ -28,12 +19,6 @@ set.seed(1)
 # Annotation of individuals
 anno <- read.csv("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/Wellness_barcodes.txt", sep="\t", header=T)
 anno <- anno[anno$Sample.type=="Helblod",]
-
-#HPA annotation
-hpa.cytokine <- read.table("HPA/cytokines/cytokine.tsv", sep="\t", header=T)
-hpa.cytokine <- hpa.cytokine[grep("secreted", hpa.cytokine$Protein.class), ]
-hpa <- read.csv("HPA/annotation/proteinatlas.tsv/proteinatlas.tsv", sep="\t")
-cytokine <- protein_data[, colnames(protein_data) %in% hpa.cytokine$Gene]
 
 # metadata
 metadata <- read.csv("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/Metadata/complete.clinical.data.wellness.t2d.txt", sep="\t", header=T)
@@ -55,42 +40,12 @@ clinical <- subset(clinical, select=-c(visit, Number, subject_id, Study, Visitda
 #RNA-seq S3WP
 rna_s3wp <- read.table("data/wellness_PBMC_v16_norm.txt", sep="\t", header = T)
 
-#Gather lifestyle
-lifestyle <- read.table("C:/Users/albze08/Desktop/postDoc/genome-metabolome/lifestyle/wellness_lifestyle.txt", header=T)
-str <- strsplit(lifestyle$iid, "_") %>% unlist()
-lifestyle$wellness.id <- str[seq(1,length(str),2)]
-lifestyle$visit <- str[seq(2,length(str),2)] %>% as.character()
-lifestyle$subject <- anno$Subject[match(lifestyle$wellness.id, anno$Wellness.id)]
-lifestyle$id <- paste0(lifestyle$subject, ":", lifestyle$visit)
-rownames(lifestyle) <- lifestyle$id
-lifestyle <- subset(lifestyle, select=-c(iid, wellness.id, subject, visit, id)) %>% na.omit()
-
-#auto-antibody
-autoanti <- read.table("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/rawdata/original.autoantibody.score.txt",
-                       header=T)
-
-rownames(autoanti) <- paste0(autoanti$subject, ":", autoanti$visit)
-autoanti.plate <- autoanti$assay_plate
-autoanti <- subset(autoanti, select=-c(SampleID,subject,barcode,visit,assay_plate))
-
 #Cytof S3WP
 cytof <- read.table("data/original.cytof.txt", sep="\t", header = T)
 rownames(cytof) <- cytof$SampleID
 cytof <- subset(cytof, select=-SampleID)
 rownames(cytof) <- gsub("_", ":", rownames(cytof))
 
-#Annotation CyTOF files
-macro.anno <- read.csv("data/cell_pop_codes.txt", sep="\t")
-macro.anno.my <- macro.anno[match(colnames(cytof), macro.anno$Populations),]
-macro.anno.my$Canonical_Pop[grep("CD4pos", macro.anno.my$Populations)] <- "CD4pos"
-macro.anno.my$Canonical_Pop[grep("CD8pos", macro.anno.my$Populations)] <- "CD8pos"
-macro.anno.my$Canonical_Pop[grep("CD56pos", macro.anno.my$Populations)] <- "CD56pos"
-macro.anno.my$Canonical_Pop[grep("Naive_B_cells", macro.anno.my$Populations)] <- "Naive_B_cells"
-macro.anno.my$Canonical_Pop[grep("CD4pos_naive", macro.anno.my$Populations)] <- "CD4pos_naive"
-macro.anno.my$Canonical_Pop[grep("CD8pos_naive", macro.anno.my$Populations)] <- "CD8pos_naive"
-rownames(macro.anno.my) <- macro.anno.my$Populations
-macro.anno.my <- subset(macro.anno.my, select=-Populations)
-colnames(macro.anno.my) <- c("family")
 
 #HPA elevated genes
 Bmemory <- read.table("HPA/memory b cell elevated.tsv", sep="\t", header=T)
@@ -430,8 +385,6 @@ pdf("ICC-CyTOF.pdf", width=6, height=4)
 print(p)
 dev.off()
 
-#df.cytof$label <- ifelse(df.cytof$icc.icc>0.75, df.cytof$var %>% as.character(), "")
-
 df.cytof.family <- df.cytof %>% group_by(family) %>% 
   summarise(median_icc=median(icc.icc), n=n()) %>% as.data.frame()
 df.cytof$family <- factor(df.cytof$family, levels=df.cytof.family$family[order(df.cytof.family$median_icc, decreasing=T)])
@@ -549,7 +502,6 @@ for (g in g.vec){
 }
 
 #GSEA on ICC ####
-
 g <- icc.df %>% filter(omic=="RNA") %>% pull(var)
 
 gene_entrez <- bitr(g, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
@@ -877,12 +829,10 @@ for (pop in colnames(cytof.group)){
   pdf(paste0("examples-stable/", pop, ".pdf"), width=4, height=3)
   print(p)
   dev.off()
-  
 }
 
 
 # Plot examples of stable proteins ####
-
 for (prot in top.prot){
   
   #gather data of gene g
@@ -917,246 +867,3 @@ for (prot in top.prot){
   dev.off()
   
 }
-
-# Connections between omics ####
-# Genes-frequencies, mean (across visits) of corr values
-common.samples <- intersect(rownames(cytof.group), rownames(rna.log))
-df.cor <- data.frame()
-for (cat in names(categories)){
-  g <- intersect(categories[[cat]], colnames(rna.log))
-  for (pop in colnames(cytof.group)){
-    df <- data.frame(pop=cytof.group[common.samples,pop], g=rowSums(rna.log[common.samples,g] %>% scale()))
-    df$ind <- gsub("\\:.*", "", common.samples) 
-    df$visit <- gsub(".*\\:", "", common.samples)
-    
-    r <- df %>% group_by(visit) %>% summarise(r=cor(pop,g,method="spearman")) %>% pull(r) %>% mean()
-    
-    df.cor <- rbind(df.cor, data.frame(cor=r,
-                                       receptor=cat, pop=pop))
-  }
-}
-df.cor <- df.cor[order(df.cor$cor, decreasing=T),]
-
-df.plot <- reshape2::melt(df.cor) %>% filter(value>0.3)
-df.plot$pop <- factor(df.plot$pop, 
-                      levels=c("Naive_B_Cells","B_Cells" ,
-                               "TEMRA_CD8", "NK_Cells",  "Effector_Memory_CD8",  "Naive_CD8",                 
-                               "Monocytes_classical", "Monocytes_intermediate", "Monocytes_nonclassical", 
-                               "Naive_CD4", "Central_Memory_CD4",              
-                               "Plasmacytoid_DC", "Myeloid_DC" ) %>% rev())
-p <- ggplot(df.plot, aes(x=receptor, y=pop)) + 
-  geom_point(aes(color=value, size=value)) +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = -30, vjust=0, hjust=0.1), legend.position="bottom") +
-  xlab("") + ylab("")
-p
-
-pdf("corr-gene-pop.pdf", width=6, height=5)
-print(p)
-dev.off()
-
-
-# Gene-protein corr ####
-common.samples <- intersect(rownames(protein), rownames(rna.log))
-
-g.all <- unlist(categories) %>% unique() %>% intersect(colnames(rna.log))
-cor.prot.gene <- cor(protein[common.samples,], rna.log[common.samples,g.all], method="spearman")
-
-df.cor <- data.frame()
-for (cat in names(categories)){
-  g <- intersect(categories[[cat]], colnames(rna.log))
-  r <- cor.prot.gene[,g] %>% rowMeans()  
-  df.cor <- rbind(df.cor, data.frame(r=r, protein=colnames(protein), cat=cat))
-}
-df.cor <- arrange(df.cor, desc(r))
-
-
-df.plot <- data.frame(x = rep("prot", nrow(df.cor)), next_x=rep("cat", nrow(df.cor)), node=df.cor$protein, next_node=df.cor$cat)
-df.plot <- rbind(df.plot, 
-                 data.frame(x = rep("cat", nrow(df.cor)), 
-                            next_x=NA, 
-                            node=df.cor$cat, 
-                            next_node=NA))
-df.plot$x <- factor(df.plot$x, levels=c("prot", "cat"))
-df.plot$next_x <- factor(df.plot$next_x, levels=c("prot", "cat"))
-
-color.alluvial <- grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)] %>% sample(length(unique(df.plot$node)))
-color.alluvial <- setNames(color.alluvial, unique(df.plot$node))
-
-ggplot(df.plot, aes(x = x, 
-                    next_x = next_x, 
-                    node = node, 
-                    next_node = next_node,
-                    fill = ifelse(is.na(df.plot$next_x), df.plot$node, NA), 
-                    label=node
-                    )) +
-  geom_alluvial(flow.alpha = .6, width=0.2, smooth=10) +
-  geom_alluvial_text( color = "black") + 
-  scale_fill_manual(values=color.alluvial) + 
-  theme_bw() +  
-  theme(plot.title = element_text(hjust = 0.5), legend.position="none") + 
-  xlab("") + ylab("Protein")
-
-
-ggplot(df.cor, aes(y=protein, x=cat)) + 
-  geom_point(aes(color=r, size=r)) +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = -30, vjust=0, hjust=0.1), legend.position="bottom") +
-  xlab("") + ylab("")
-p
-
-
-keep.prot <- df.cor$protein[1:50]
-
-df.wide <- df.cor %>% filter(protein %in% keep.prot) %>%
-  pivot_wider(
-    names_from  = cat,
-    values_from = r
-  ) %>% column_to_rownames("protein")
-
-d <- df.wide %>% as.matrix()
-d[is.na(d)] <- 0
-heatmap(d, na_col = "grey90")
-
-
-#prot-pop corr ####
-
-common.samples <- intersect(rownames(protein), rownames(cytof.group))
-
-cor.prot.pop <- cor(protein[common.samples,], cytof.group[common.samples,], method="spearman")
-
-df.cor <- data.frame()
-for (pop in colnames(cytof.group)){
-  r <- cor.prot.pop[,pop]  
-  df.cor <- rbind(df.cor, data.frame(r=r, protein=colnames(protein), pop=pop))
-}
-df.cor <- arrange(df.cor, desc(r))
-
-
-
-ggplot(df.cor[1:50,], aes(y=protein, x=pop)) + 
-  geom_point(aes(color=r, size=r)) +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = -30, vjust=0, hjust=0.1), legend.position="bottom") +
-  xlab("") + ylab("")
-
-
-top.ass <- df.cor %>% group_by(pop) %>% arrange(desc(r)) %>% summarise(g=list(head(protein, n=5))) %>% 
-  pull(protein) %>% unlist()
-
-for (p in unique(df.cor$pop)){
-  df <- df.cor %>% filter(pop == p) %>% arrange(desc(r))
-  print(p)
-  print(df$prot[1:10])
-}
-
-keep.prot <- df.cor$protein[df.cor$r>0.2]
-
-df.wide <- df.cor %>% filter(protein %in% keep.prot) %>%
-  pivot_wider(
-    names_from  = pop,
-    values_from = r
-  ) %>% column_to_rownames("protein")
-
-d <- df.wide %>% as.matrix()
-
-pdf("tmp.pdf", height=8, width=4)
-pheatmap(d, fontsize=5)
-dev.off()
-
-# Gene-pop corr ####
-cytof.clr <- clr.matrix(cytof.group)
-df.cor.g <- data.frame()
-for (cat in names(categories)){
-  for (g in categories[[cat]] %>% intersect(colnames(rna.log))){
-    
-    for (pop in colnames(cytof.group)){
-      df <- data.frame(y=rna.log[common.samples,g] %>% scale(), pop=cytof.clr[common.samples,pop] %>% scale())
-      df$visit <- gsub(".*\\:", "", common.samples)
-      df.cor.g <- rbind(df.cor.g,
-                        data.frame(pop=pop, r=df %>% group_by(visit) %>% summarise(r=cor(pop,y,method="spearman")) %>% pull(r) %>% mean(), gene=g, category=cat) )
-      
-    }
-  }
-}
-
-# Re-run ICC using significant cell types as covariates ####
-cytof.clr <- clr.matrix(cytof.group)
-df.icc.pop <- data.frame()
-for (cat in names(categories)){
-  for (g in categories[[cat]] %>% intersect(colnames(rna.log))){
-    
-    pop <- df.cor.g %>% filter(r>0.2 & gene==g) %>% pull(pop)
-    df <- data.frame(y=rna.log[common.samples,g] %>% scale(), cytof.clr[common.samples,pop,drop=F] %>% scale())
-    df$ind <- gsub("\\:.*", "", common.samples)
-    df$sex <- ifelse(metadata$Gender[match(common.samples, metadata$id)]=="m",1,0)
-    df$age <- metadata$Age_at_Visit[match(common.samples, metadata$id)]
-    
-    if (length(pop)>0){
-      lme_model <- lmer(paste0("y~1+sex+age+(1|ind)+", paste(pop,collapse="+")), data = df)
-    } else {
-      lme_model <- lmer(y~1+sex+age+(1|ind), data = df)
-    }
-    lme.var <- VarCorr(lme_model) %>% as.data.frame() %>% column_to_rownames("grp")
-    s.btw <- lme.var["ind", "vcov"]
-    s.wtn <- lme.var["Residual", "vcov"]
-    icc <- s.btw/(s.btw+s.wtn)
-    
-    df.icc.pop <- rbind(df.icc.pop, data.frame(gene=g, icc=icc, category=cat))
-    
-  }
-}
-df.icc.pop$icc_ori <- icc.df$icc.icc[match(df.icc.pop$gene, icc.df$var)] 
-plot(df.icc.pop$icc_ori, df.icc.pop$icc)
-
-#Plot examples
-common.samples <- intersect(rownames(cytof), rownames(rna.log))
-df.plot <- data.frame()
-pop <- "Naive_B_Cells"
-cat <- "BCR complex"
-
-x <- rna.log %>% select(all_of(g)) %>% rowSums()
-y <- cytof.group %>% select(all_of(pop)) %>% rowSums()
-x <- x[common.samples]
-y <- y[common.samples]
-
-df.plot <- data.frame(gene=x, pop=y, sample=common.samples, ind=gsub("\\:.*", "", common.samples))
-
-ggplot(df.plot, aes(x=gene, y=pop, color=ind)) +
-  geom_point() +
-  theme_classic() +
-  theme(legend.position = "none") +
-  xlab("Gene expression") + ylab("Immune frequency")
-
-
-# Cell-gene associations ####
-df.gene <- readRDS("Ensemble_naive.RDS")
-
-df.out <- bind_rows(df.gene) %>% mutate(pval.bon=pval*n(), pval.bh=p.adjust(pval,method="BH"))
-df.out %>% filter(pval.bon<0.05 & estimate>0) %>% pull(source) %>% table() %>% sort(decreasing=T)
-df.out %>% filter(pval.bh<0.05 & estimate>0) %>% pull(source) %>% table() %>% sort(decreasing=T)
-
-# Plot examples
-for (pop in df.out %>% filter(estimate>0) %>% pull(source) %>% unique() %>% setdiff(c("sex","age"))){
-  g <- df.out %>% filter(source==pop & estimate>0) %>% filter(pval==min(pval)) %>% pull(gene) 
-  
-  df.plot <- data.frame(gene=rna.log[common.samples, g], 
-                        pop=cytof.group[common.samples, pop],
-                        visit=gsub(".*\\:", "", common.samples))
-  p <- ggplot(df.plot, aes(x=pop, y=gene, group=visit)) + 
-    geom_point(aes(color=visit), alpha=0.2) + 
-    geom_smooth(method = "lm", aes(color = visit), se=F) +
-    theme_classic() +
-    theme(legend.position="none") +
-    xlab(pop) + ylab(g)
-  
-  print(p)
-}
-
-#Old Palette ####
-pop.palette <- c("monocytes"="sienna2", "CD8pos"="#E31A1C", "NK_cells"="turquoise", 
-                 "CD8pos_naive"="#FB9A99", "CD4pos_naive"="#B2DF8A",             
-                 "basophils"="goldenrod2", 
-                 "B_cells"="dodgerblue4",               
-                 "Dendritic_cells"="bisque3", "Naive_B_cells"="dodgerblue2", 
-                 "CD4pos"="#33A02C", "Other"="gray78")
