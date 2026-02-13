@@ -5,7 +5,7 @@ Alberto Zenere1,2#, Xingyue Wang1,2#, Ziyang Tan3, Tadepally Lakshmikanth 3,8,9,
 
 **Affiliations**
 
-1 Department of Biomedical and Clinical Sciences, Linköping University, Linköping, Sweden.
+1 Department of Biomedical and Clinical Sciences, Linköping University, Linköping, Sweden.\
 
 2 Science for Life Laboratory, Linköping University, Linköping, Sweden.
 
