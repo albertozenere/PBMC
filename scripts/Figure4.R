@@ -1,10 +1,3 @@
-rm(list = ls())
-
-# Setup ####
-path <- .libPaths()
-newpath <- "C:/Users/albze08/Desktop/R/mQTL"
-.libPaths(newpath)
-
 
 pack_R <- c("dplyr","ggplot2","ggrepel","umap", "edgeR",
             "RColorBrewer", "pheatmap", "tidyverse",
@@ -16,7 +9,6 @@ for (i in 1:length(pack_R)) {
   library(pack_R[i], character.only = TRUE)
 }
 
-setwd("C:/Users/albze08/Desktop/postDoc/PBMC/")
 
 set.seed(1)
 
@@ -27,12 +19,6 @@ set.seed(1)
 anno <- read.csv("data/Wellness_barcodes.txt", sep="\t", header=T)
 anno <- anno[anno$Sample.type=="Helblod",]
 
-#Proteomics
-# protein_data <- read.csv("data/wellness_norm_final_794_visit1_4_wj.txt.txt", sep="\t", header=T)
-# protein_data$subject_id <- anno$Subject[match(protein_data$sample, anno$Wellness.id)]
-# protein_data$id <- paste0(protein_data$subject_id, ":", protein_data$visit)
-# rownames(protein_data) <- protein_data$id
-# protein_data <- subset(protein_data, select=-c(iid, sample, visit, id, subject_id))
 
 # Proteomics
 protein_data <- read.csv("data/wellness_norm_final_794_wj_alternative_anno.txt", sep="\t", header=T)
@@ -49,11 +35,6 @@ protein <- makeX(protein, na.impute = T)
 
 rm(protein.long)
 
-#HPA annotation
-hpa.cytokine <- read.table("HPA/cytokines/cytokine.tsv", sep="\t", header=T)
-hpa.cytokine <- hpa.cytokine[grep("secreted", hpa.cytokine$Protein.class), ]
-hpa <- read.table("HPA/all/proteinatlas.tsv", sep="\t", header=T)
-cytokine <- protein_data[, colnames(protein_data) %in% hpa.cytokine$Gene]
 
 # metadata
 metadata <- read.csv("data/complete.clinical.data.wellness.t2d.txt", sep="\t", header=T)
@@ -75,42 +56,11 @@ clinical <- subset(clinical, select=-c(visit, Number, subject_id, Study, Visitda
 #RNA-seq S3WP
 rna_s3wp <- read.table("data/wellness_PBMC_v16_norm.txt", sep="\t", header = T)
 
-#Gather lifestyle
-lifestyle <- read.table("C:/Users/albze08/Desktop/postDoc/genome-metabolome/lifestyle/wellness_lifestyle.txt", header=T)
-str <- strsplit(lifestyle$iid, "_") %>% unlist()
-lifestyle$wellness.id <- str[seq(1,length(str),2)]
-lifestyle$visit <- str[seq(2,length(str),2)] %>% as.character()
-lifestyle$subject <- anno$Subject[match(lifestyle$wellness.id, anno$Wellness.id)]
-lifestyle$id <- paste0(lifestyle$subject, ":", lifestyle$visit)
-rownames(lifestyle) <- lifestyle$id
-lifestyle <- subset(lifestyle, select=-c(iid, wellness.id, subject, visit, id)) %>% na.omit()
-
-#auto-antibody
-autoanti <- read.table("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/rawdata/original.autoantibody.score.txt",
-                       header=T)
-
-rownames(autoanti) <- paste0(autoanti$subject, ":", autoanti$visit)
-autoanti.plate <- autoanti$assay_plate
-autoanti <- subset(autoanti, select=-c(SampleID,subject,barcode,visit,assay_plate))
-
 #Cytof S3WP
 cytof <- read.table("data/original.cytof.txt", sep="\t", header = T)
 rownames(cytof) <- cytof$SampleID
 cytof <- subset(cytof, select=-SampleID)
 rownames(cytof) <- gsub("_", ":", rownames(cytof))
-
-#Annotation CyTOF files
-macro.anno <- read.csv("data/cell_pop_codes.txt", sep="\t")
-macro.anno.my <- macro.anno[match(colnames(cytof), macro.anno$Populations),]
-macro.anno.my$Canonical_Pop[grep("CD4pos", macro.anno.my$Populations)] <- "CD4pos"
-macro.anno.my$Canonical_Pop[grep("CD8pos", macro.anno.my$Populations)] <- "CD8pos"
-macro.anno.my$Canonical_Pop[grep("CD56pos", macro.anno.my$Populations)] <- "CD56pos"
-macro.anno.my$Canonical_Pop[grep("Naive_B_cells", macro.anno.my$Populations)] <- "Naive_B_cells"
-macro.anno.my$Canonical_Pop[grep("CD4pos_naive", macro.anno.my$Populations)] <- "CD4pos_naive"
-macro.anno.my$Canonical_Pop[grep("CD8pos_naive", macro.anno.my$Populations)] <- "CD8pos_naive"
-rownames(macro.anno.my) <- macro.anno.my$Populations
-macro.anno.my <- subset(macro.anno.my, select=-Populations)
-colnames(macro.anno.my) <- c("family")
 
 #HPA elevated genes
 Bmemory <- read.table("HPA/memory b cell elevated.tsv", sep="\t", header=T)
@@ -364,8 +314,6 @@ pop.prot$variable <- as.character(pop.prot$variable)
 pop.prot.summ <- pop.prot %>% group_by(pop) %>% arrange(desc(value)) %>% summarise(top.prot=list(head(variable, n=10)))
 
 
-#cell.gene <- cell.gene %>% filter(pop %in% (cell.gene %>% group_by(pop) %>% summarise(n=n()) %>% filter(n>20) %>% pull(pop)))
-
 # ICC per pop ####
 gene.unique <- cell.gene %>% group_by(gene) %>% summarise(n=n()) %>% filter(n==1) %>% pull(gene)
 
@@ -521,9 +469,6 @@ for (pop.n in pop.keep){
     
     p <- dotplot(gsea_result, color="NES") + ggtitle(pop.n)
     print(p)
-    # cairo_pdf(paste0(u, "-GSEA.pdf"), width=8, height=4)
-    # barplot(go_result)
-    # dev.off()
   }
 }
 
@@ -541,15 +486,13 @@ for (u in pop.keep){
   df.plot <- rbind(df.plot, df.u)
 }
 
-#df.plot$Description <- factor(df.plot$Description, levels=df.plot$Description %>% rev())
-#df.plot$pop <- factor(df.plot$pop, c("Myeloid","Bcell", "Cytotoxic") %>% rev())
 p <- ggplot(df.plot, aes(x=tags, y=Description)) +
   facet_wrap(~pop, ncol=1, scales = "free_y", axes="all") +
   geom_point(aes(color=p.adjust, size=NES)) +
   scale_color_gradient(low="#660000", high="#FF9999") +
   theme_classic() +
   theme(
-    strip.background = element_blank(),  # removes facet header background
+    strip.background = element_blank(),  
     strip.text = element_text(color = "black"),
     legend.position="bottom"
   ) +
@@ -647,8 +590,6 @@ writeData(wb, "PBMC association network", df)
 writeData(wb, "Gene Ontology enrichment", df2)
 
 saveWorkbook(wb, "Supplementary Table 3.xlsx", overwrite = TRUE)
-
-
 
 
 # Known markers ####
@@ -915,7 +856,6 @@ ggplot(df.plot %>% filter(`Gene.name`=="VCAN"), aes(x=Immune.cell, y=nTPM)) +
 
 
 
-
 # Clustering of samples ####
 
 #PCA each unit
@@ -1042,9 +982,7 @@ ggplot(d, aes(x=primary_cluster, y=value)) +
         panel.background = element_blank(),     # Tar bort bakgrun
         panel.border = element_blank()  ) 
 
-#UMAP
-# umap_df <- umap( da_forcluster, n_neighbors = 10, n_components = 2)
-# df.plot <- umap_df$layout %>% as.data.frame()
+
 
 #t-SNE ####
 tsne_df <- Rtsne(da_forcluster, dims = 2, perplexity = 5, verbose = F, max_iter = 500)
@@ -1057,10 +995,8 @@ df.plot$primary_cluster <- paste0("cluster", primary_cluster$primary_cluster[mat
 
 #Plot
 p <- ggplot(df.plot, aes(x=tSNE1, y=tSNE2)) + 
-  #geom_line(aes(group=subject), linetype=2, color="gray77") +
   geom_point(size=2, aes(color=primary_cluster)) + 
   scale_color_manual(values=c(cluster1="#E69F00", cluster2="#56B4E9", cluster3="#009E73")) + 
-  #scale_color_manual(values=color.UMAP) + 
   theme_classic() + theme(legend.position="none") +
   ylab("")
 p
@@ -1180,7 +1116,6 @@ p <- ggplot(df.plot, aes(x = x,
                          fill = node %>% as.character(),
                          label=node)) +
   geom_alluvial(flow.alpha = .6, width=0.2) +
-  #geom_alluvial_text(size = 5, color = "white") + 
   scale_fill_manual(values=c(cluster1="#E69F00", cluster2="#56B4E9", cluster3="#009E73")) + 
   theme_bw() +  
   theme(text=element_text(size=12, family="Arial"), plot.title = element_text(hjust = 0.5), legend.position="none") + 
@@ -1675,7 +1610,6 @@ dev.off()
 
 
 
-
 # Pathway enrichment ####
 g1 <- cluster1.DEG %>% rownames_to_column("gene") %>% filter(adj.P.Val<0.05) %>% 
   filter(logFC>0) %>% arrange(desc(logFC)) %>% pull(gene) %>% head(n=200)
@@ -1728,8 +1662,8 @@ pdf("GO_cluster_1011.pdf", height=6, width=10)
 print(p)
 dev.off()
 
-#Volcano of DEGs ####
 
+#Volcano of DEGs ####
 plot_volcano <- function(df.plot){
 df.plot$group <- "ns"
 df.plot$group[df.plot$adj.P.Val<0.05 & df.plot$logFC>0] <-"up"
@@ -1821,29 +1755,12 @@ df.plot <- rbind(
 )
 
 
-#order pop
-# pop.ord <- c("Age_at_Visit", 
-#              "BMI", "Height", "Weight","Waist", "Hip", "Bioimp_fat", "Bioimp_muscle","Bioimp_bone",
-#              "Cap_Gluc","Gluc","HbA1c",
-#              "SBP", "DBP",
-#              "HDL", "Chol", "LDL", "TG", "ApoB.apoA1" ,"ApoB", "ApoA1",
-#              "CRP",
-#              "GGT", "ALAT", 
-#              "CystC","Crea",
-#              "ProBNP",  "TNT",                                                             
-#              "Urate" ) %>% rev()
-
 pop.ord <- c("HbA1c", "ApoB", "Chol", "LDL", "Age_at_Visit", "ALAT", "GGT", "ApoB.apoA1", "Cap_Gluc",     
              "Bioimp_bone", "Gluc", "TG", "BMI", "CRP", "TNT", "DBP",          
              "Waist", "Bioimp_muscle", "SBP", "Height", "Weight", "Crea", "Urate", "CystC",        
              "ApoA1", "HDL", "Hip", "Bioimp_fat", "ProBNP")
-
-# pop.ord <- lm.clinical %>% filter(estimate>0) %>% 
-#   group_by(var) %>% slice_min(p.value, n = 1) %>% 
-#   arrange(cluster, desc(estimate)) %>% pull(var) %>% setdiff("Gender") %>% rev()      
   
 df.plot <- df.plot[,pop.ord]
-
 
 pdf("radar-clinical-1711.pdf", height=5, width=5)
 radarchart(df.plot,
@@ -1919,865 +1836,3 @@ writeData(wb, "Clinical variables", df)
 
 saveWorkbook(wb, "Supplementary Table 4.xlsx", overwrite = TRUE)
 
-
-#lm for lifestyle ####
-library("emmeans")
-
-lifestyle <- metadata %>%
-  subset(select=c(Housing_change, MaritalStatus_change,
-                  Employment_change, PerceivedHealth,       
-                  Stress, PhysicalActivity, Animals, 
-                  Calcitriol, Calcidiol, Common_cold_influenzae, NSAID_painmed, Bp_med, Lipid_med,             
-                  Antibiotics_med, Diab_med, Smoking))
-lifestyle$PerceivedHealth[lifestyle$PerceivedHealth=="dalig"] <- 0
-lifestyle$PerceivedHealth[lifestyle$PerceivedHealth=="nagorlunda"] <- 1
-lifestyle$PerceivedHealth[lifestyle$PerceivedHealth=="god"] <- 2
-lifestyle$PerceivedHealth[lifestyle$PerceivedHealth=="mycket_god"] <- 3
-lifestyle$PerceivedHealth[lifestyle$PerceivedHealth=="utmarkt"] <- 4
-lifestyle$PerceivedHealth <- as.numeric(lifestyle$PerceivedHealth)
-
-lifestyle$Stress[lifestyle$Stress=="nej"] <- 0
-lifestyle$Stress[lifestyle$Stress=="ja_nagon"] <- 1
-lifestyle$Stress[lifestyle$Stress=="ja_standig"] <- 2
-lifestyle$Stress <- as.numeric(lifestyle$Stress)
-
-lifestyle$PhysicalActivity[lifestyle$PerceivedHealth=="aldrig"] <- 0
-lifestyle$PhysicalActivity[lifestyle$PhysicalActivity=="da_och_da"] <- 1
-lifestyle$PhysicalActivity[lifestyle$PhysicalActivity=="1_2_ggr_vecka"] <- 2
-lifestyle$PhysicalActivity[lifestyle$PhysicalActivity=="2_3_ggr_vecka"] <- 3
-lifestyle$PhysicalActivity[lifestyle$PhysicalActivity=="mer_an_3_ggr_vecka"] <- 4
-lifestyle$PhysicalActivity <- as.numeric(lifestyle$PhysicalActivity)
-
-lm.lifestyle <- data.frame()
-for (n in 1:ncol(lifestyle)){
-  
-  df <- primary_cluster
-  df$primary_cluster <- as.character(df$primary_cluster)
-  df$x <- lifestyle[match(df$sample, metadata$id), n]
-  
-  fit <- lm(x ~ primary_cluster, df)
-  lm.lifestyle <- rbind(lm.lifestyle,
-                       emmeans(fit, specs = "primary_cluster") %>%
-                         contrast(method = "del.eff", adjust = "none") %>% as.data.frame() %>% mutate(var=colnames(lifestyle)[n]))
-  
-}
-lm.lifestyle$adj.pval <- p.adjust(lm.lifestyle$p.value,  method="BH")
-lm.lifestyle$cluster <- NA
-lm.lifestyle$cluster[lm.lifestyle$contrast == "primary_cluster1 effect"] <- "clusterA"
-lm.lifestyle$cluster[lm.lifestyle$contrast == "primary_cluster2 effect"] <- "clusterB"
-lm.lifestyle$cluster[lm.lifestyle$contrast == "primary_cluster3 effect"] <- "clusterC"
-
-# summary lifestyle differences
-lifestyle.summ <- data.frame(upA=sum(lm.lifestyle$adj.pval<0.05 & lm.lifestyle$cluster=="clusterA" & lm.lifestyle$estimate>0),
-                            upB=sum(lm.lifestyle$adj.pval<0.05 & lm.lifestyle$cluster=="clusterB" & lm.lifestyle$estimate>0),
-                            upC=sum(lm.lifestyle$adj.pval<0.05 & lm.lifestyle$cluster=="clusterC" & lm.lifestyle$estimate>0))
-lifestyle.summ$notSign <- ncol(lifestyle) - lifestyle.summ$upA - lifestyle.summ$upB - lifestyle.summ$upC
-
-
-
-#adjust by sex
-df.cli <- data.frame()
-cli.uniq <- unique(df.plot$variable) %>% setdiff("Gender")
-
-for (cli in cli.uniq){
-  
-  df <- metadata[, c(cli, "Gender")] %>% merge(primary_cluster, by.x="row.names", by.y="sample") %>% subset(select=-Row.names) %>%
-    mutate(primary_cluster=as.character(primary_cluster))
-  df[,1] <- scale(df[,1])
-  colnames(df)[1] <- "y"
-  lmOut <- lm(y~Gender+primary_cluster, df) %>% summary() %>% coef() %>% as.data.frame()
-  #anovaOut <- lmOut %>% anova() %>% as.data.frame() #results depend on order in formula
-  
-  df <- data.frame(lmOut[-1,] %>% rownames_to_column(var="var"), cli=cli)
-  df.cli <- rbind(df.cli,df)
-}
-
-# Clinical phenotype ####
-library("rpart")
-library("rpart.plot")
-X.tree <- data.frame(group=primary_cluster[,1,drop=F], metadata[match(primary_cluster$sample, metadata$id),]) %>%
-  subset(select=-c(Number, subject_id, Study, Visitdate, subject_short, id, 
-                   Weight, Waist, Height, Hip, Bioimp_fat, Bioimp_muscle, Bioimp_bone,
-                   Hb, WBC, Plt, RBC, Hct, MCV, MCH, MCHC, Neut, Lymph, Mono, Eos, Baso))
-X.tree$Gender <-ifelse(X.tree$Gender=="m", 1, 0)
-for (n in 2:ncol(X.tree)){
-  X.tree[,n] <- ifelse(X.tree[,n]>=median(X.tree[,n]), 1, 0)
-}
-
-tree_model <- rpart(formula(X.tree), data=X.tree, method = "class")
-#rf_model <- randomForest(formula(X.tree), data=X.tree %>% na.omit(), importance = TRUE)
-
-pdf("tmp.pdf")
-rpart.plot(tree_model) %>% print()
-dev.off()
-
-########### OLD ################
-
-# Custom GO enrichment analysis ####
-library("GO.db")
-go_terms <- keys(GO.db, keytype = "GOID", columns="GOID")
-
-# Get all associated genes for each GO term
-GO.anno <- AnnotationDbi::select(
-  org.Hs.eg.db,
-  keys = go_terms,
-  keytype = "GO",
-  columns = c("ENTREZID", "ENSEMBL", "SYMBOL", "GO", "ONTOLOGY")
-)
-GO.anno.full <- buildGOmap(GO.anno[,c("GO", "ENSEMBL")]) #adds parents and children
-GO.anno.full$ONTOLOGY <- GO.anno$ONTOLOGY[match(GO.anno.full$GO, GO.anno$GO)]
-GO.anno <- GO.anno.full
-colnames(GO.anno)[2] <- "ENSEMBL"
-
-GO.anno <- GO.anno[GO.anno$ENSEMBL %in% ensg.symbol$ensg,]
-GO.anno$SYMBOL <- ensg.symbol$symbol[match(GO.anno$ENSEMBL, ensg.symbol$ensg)]
-
-#add description
-GO.id <- data.frame(id=unique(GO.anno$GO))
-GO.id$description <- lapply(GO.id$id, Term) %>% unlist() 
-GO.anno$description <- GO.id$description[match(GO.anno$GO, GO.id$id)]
-
-#consider BP only
-GO.anno <- na.omit(GO.anno)
-GO.anno <- GO.anno[GO.anno$ONTOLOGY=="BP",]
-
-grep("metabolism", GO.anno$description, value=T, ignore.case = T) %>% unique()
-
-keywords <- list(
-  Phagocytosis = c("phagocytosis"),
-  Inflammation = c("inflammatory response", "regulation of inflammatory response"),
-  MicrobialDefense = c("defense response to other organism", 
-                       "response to molecule of bacterial origin", 
-                       "response to bacterium"),
-  ChemokineActivity = c("chemokine production", 
-                        "regulation of chemokine production", 
-                        "positive regulation of chemokine production", 
-                        "granulocyte chemotaxis"),
-  MyeloidCellActivities = c("phagocytosis", 
-                            "myeloid leukocyte activation", 
-                            "myeloid leukocyte migration"),
-  ImmuneResponseActivation = c("positive regulation of immune response", 
-                               "activation of immune response"),
-  AntigenReceptorSignaling = c("antigen receptor-mediated signaling pathway", 
-                               "immune response-activating signal transduction"),
-  CellSurfaceReceptorSignaling = c("immune response-regulating cell surface receptor signaling pathway", 
-                                   "immune response-activating cell surface receptor signaling pathway"),
-  LymphocyteActivation = c("lymphocyte activation", 
-                           "lymphocyte mediated immunity", 
-                           "lymphocyte differentiation"),
-  TCellActivation = c("T cell receptor signaling pathway", 
-                      "alpha-beta T cell activation", 
-                      "T cell activation"),
-  BCellActivation = c("B cell activation", 
-                      "B cell receptor signaling pathway", 
-                      "B cell differentiation"),
-  GTPaseActivityRegulation = c("regulation of GTPase activity", 
-                               "cytoplasmic translation", 
-                               "positive regulation of GTPase activity"),
-  Cytoskeleton = c("actin filament bundle assembly", 
-                   "actin filament bundle organization", 
-                   "regulation of cell shape"),
-  MotilityRegulation = c("positive regulation of cell motility", 
-                         "regulation of cell motility", 
-                         "regulation of locomotion", 
-                         "regulation of cell migration", 
-                         "positive regulation of locomotion", 
-                         "positive regulation of cell migration"),
-  TranscriptionRegulation = c("negative regulation of transcription by RNA polymerase II", 
-                              "regulation of response to external stimulus"),
-  ChromatinModification = c("histone modification", 
-                            "chromatin organization", 
-                            "chromatin remodeling")
-)
-
-keyword.genes <- list()
-for (str in names(keywords)){
-  ensg <- GO.anno$ENSEMBL[grep(paste(keywords[[str]],collapse="|"), GO.anno$description, ignore.case = T)]
-  keyword.genes[[str]] <- ensg.symbol$symbol[match(ensg, ensg.symbol$ensg)] %>% unique() %>% setdiff(NA)
-}
-lapply(keyword.genes , length) %>% unlist() %>% sort()
-
-df.immune <- data.frame()
-for (pop in names(gene.module)){
-  df.immune.pop <- data.frame()
-  for (str in names(keywords)){
-    g.keyword <- keyword.genes[[str]]
-    g.pop <- gene.module[[pop]]
-    f <- my_fisher_test(g.pop, unique(ensg.symbol$symbol), g.keyword)
-    df.immune.pop <- rbind(df.immune.pop,
-                           data.frame(pop=pop, pathway=str,
-                                      n=f$n_genes, n_pathway=length(g.keyword), n_pop=length(g.pop),
-                                      p=f$p_value, OR=f$odds_ratio, ratio=f$n_genes/length(g.keyword)))
-  }
-  df.immune <- rbind(df.immune, df.immune.pop)
-}
-df.immune$adj.pval <- p.adjust(df.immune$p, method="BH")
-df.immune <- df.immune[df.immune$adj.pval<0.05,]
-
-df.immune$pathway <- factor(df.immune$pathway, levels=names(keyword.genes))
-#df.immune$pop <- factor(df.immune$pop, levels=paste0("Module ", 1:7))
-p <- ggplot(df.immune, aes(x=pop, y=pathway)) + 
-  geom_point(aes(size=OR, color=-log10(adj.pval))) + 
-  #scale_color_gradient(low="tomato", high="gray88") +
-  #geom_tile(aes(fill=adj.pval), color="white") + 
-  #scale_fill_gradientn(colors=c("darkred", "tomato", "gray", "gray88"), values=c(0,0.05, 0.1,1), breaks=0.05, labels="0.05") +
-  #scale_color_gradientn(colors=c("darkred", "tomato", "gray", "gray88"), values=c(0,0.05, 0.1,1), breaks=0.05, labels="0.05") +
-  #scale_fill_gradientn(colors=c("darkred", "tomato",rep("gray88",2)), values=c(0,0.01, seq(0.05,1,length.out=2))) +
-  #scale_color_gradientn(breaks=c(-1,-.2, .2, .5), colors=c("royalblue", "gray88", "tomato")) +
-  #coord_flip() +
-  theme_bw() + 
-  theme(axis.text.x = element_text(angle = -90, vjust = 0.5, hjust=0), legend.position="bottom") +
-  theme(text=element_text(size=10, family="Arial"), plot.title = element_text(hjust = 0.5)) +
-  xlab("") + ylab("") + ggtitle("GO enrichment")
-p
-cairo_pdf("GO-enrich-070725.pdf", width=3, height=4)
-print(p)
-dev.off()
-
-
-# Full GO ####
-fisher_GO <- function(g){
-  #GO
-  GO.obj <- enrichGO(
-    gene = g, 
-    OrgDb = org.Hs.eg.db, 
-    ont = "BP",
-    keyType = "SYMBOL", 
-    pvalueCutoff = 0.05, 
-    qvalueCutoff = 0.05,
-    universe = ensg.symbol$symbol %>% unique()
-  ) %>% simplify()
-  
-  if (any(GO.obj@result$p.adjust<0.05)){
-    df <- GO.obj@result 
-    df <- df[order(df$p.adjust, decreasing=F),] %>% subset(p.adjust<0.05)
-    
-    df$GeneRatio <- sapply(df$GeneRatio, function(x) {
-      parts <- as.numeric(unlist(strsplit(x, "/")))
-      parts[1] / parts[2] })    
-    df$BgRatio <- sapply(df$BgRatio, function(x) {
-      parts <- as.numeric(unlist(strsplit(x, "/")))
-      parts[1] / parts[2] })
-    
-    df$OR <- df$GeneRatio / df$BgRatio
-    
-    df$Description <- factor(df$Description, levels=df$Description[order(df$OR, decreasing=F)])
-    p <- ggplot(df, aes(x=OR, y=Description, size=GeneRatio, color=p.adjust)) + 
-      geom_point() + 
-      geom_vline(xintercept=1, linetype=2) +
-      scale_color_gradientn(colors=c("goldenrod", "gray78"), 
-                            breaks=c(0,0.05,1),
-                            limits=c(0,1),
-                            values = scales::rescale(c(0,0.05,1))) +
-      theme_classic2() +
-      theme(text=element_text(size=16, family="sans"),
-            plot.title = element_text(hjust = 0.5)) +
-      xlab("Odds ratio") + ylab("")
-  } else {
-    p <- ggplot()
-    df <- data.frame()
-  }
-  
-  return(list(p=p, df=df))
-}
-
-df.GO <- data.frame()
-for (pop in names(gene.module)){
-  print(pop)
-  g <- gene.module[[pop]]
-  df <- fisher_GO(g)$df
-  if (nrow(df)>0){
-    df.GO <- rbind(df.GO, data.frame(df, module=pop))
-  }
-}
-
-writexl::write_xlsx(df.GO, "Tab 3_GO.xlsx")
-
-
-# 
-#GO
-universe_entrez <- bitr(colnames(rna), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
-universe_ids <- universe_entrez$ENTREZID
-df.GO <- data.frame()
-for (u in names(gene.unit)){
-  g <- gene.unit[[u]]
-  gene_entrez <- bitr(g, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
-  entrez_ids <- gene_entrez$ENTREZID
-  
-  go_result <- enrichGO(gene = entrez_ids, OrgDb = org.Hs.eg.db, ont = "BP",
-                        pvalueCutoff = 1, universe=universe_ids)
-  
-  if (any(go_result@result$p.adjust<0.05)){
-    df.GO <- rbind(df.GO, data.frame(go_result@result, pop=cl))
-    
-    barplot(go_result, main=u) %>% print()
-    
-    cairo_pdf(paste0(u, "-GO.pdf"), width=8, height=4)
-    barplot(go_result)
-    dev.off()
-  }
-}
-
-
-
-# Gene modules ####
-#genes associated with each immune module
-gene.module <- cell.gene %>% group_by(pop) %>% summarise(g=list(gene)) 
-gene.module <- setNames(gene.module$g, gene.module$pop)
-MIN_SIZE_MODULE <- 20
-for (cl in names(gene.module)){
-  for (cl2 in names(gene.module)){
-    if (cl != cl2){
-      N.overlap <- length(intersect(gene.module[[cl]], gene.module[[cl2]]))
-      if (N.overlap>=MIN_SIZE_MODULE){
-        print(paste0(cl, "-", cl2, ": ", N.overlap))
-      }
-      g1 <- setdiff(gene.module[[cl]], gene.module[[cl2]])
-      g2 <- setdiff(gene.module[[cl2]], gene.module[[cl]])
-      gene.module[[cl]] <- g1
-      gene.module[[cl2]] <- g2
-    }
-  }
-}
-
-#add manually the largest intersections
-for (n in 1:nrow(df)){
-  cl <- paste0(df$source[n], "_", df$target[n])
-  g <- intersect(cell.gene %>% filter(pop==df$source[n]) %>% pull(gene),
-                 cell.gene %>% filter(pop==df$target[n]) %>% pull(gene))
-  gene.module[[cl]] <- g
-}
-
-#remove small clusters
-gene.module <- gene.module[lapply(gene.module, length) %>% unlist() >=MIN_SIZE_MODULE]
-
-
-# GO for every gene module ####
-universe_entrez <- bitr(colnames(rna), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
-universe_ids <- universe_entrez$ENTREZID
-df.GO <- data.frame()
-for (cl in names(gene.module)){
-  print(cl)
-  g <- gene.module[[cl]]
-  gene_entrez <- bitr(g, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
-  entrez_ids <- gene_entrez$ENTREZID
-  
-  go_result <- enrichGO(gene = entrez_ids, OrgDb = org.Hs.eg.db, ont = "BP",
-                        pvalueCutoff = 1, universe=universe_ids) %>% clusterProfiler::simplify()
-  
-  if (any(go_result@result$p.adjust<0.05)){
-    df.GO <- rbind(df.GO, data.frame(go_result@result, pop=cl))
-    
-    barplot(go_result, main=cl) %>% print()
-    
-    cairo_pdf(paste0(cl, "-GO.pdf"), width=8, height=4)
-    barplot(go_result)
-    dev.off()
-  }
-}
-
-# remove intersections and merge the cell types with intersections with GO terms
-# gene.module[["TEMRA_CD8_NK_Cells"]] <- union(cell.gene %>% filter(pop=="TEMRA_CD8") %>% pull(gene),
-#                                              cell.gene %>% filter(pop=="NK_Cells") %>% pull(gene))
-# 
-# gene.module[["TEMRA_CD8_NK_Cells"]] <- union(cell.gene %>% filter(pop=="Monocytes_classical") %>% pull(gene),
-#                                              cell.gene %>% filter(pop=="NK_Cells") %>% pull(gene))
-# gene.module[[c("TEMRA_CD8_NK_Cells", "", "", "Monocytes_classical_Myeloid_DC", "", "")]]
-
-
-
-
-# Correlation modules within each pop ####
-fisher_pool <- function(r, n) {
-  z <- 0.5 * log((1 + r) / (1 - r))
-  w <- n - 3
-  z_bar <- sum(w * z) / sum(w)
-  r_bar <- tanh(z_bar)
-  
-  Z_stat <- z_bar * sqrt(sum(w))
-  p_value <- 2 * (1 - pnorm(abs(Z_stat)))
-  
-  list(pooled_r = r_bar, pooled_p = p_value)
-}
-
-common.samples <- intersect(rownames(cytof), rownames(rna.log))
-df.cor <- data.frame()
-visit.vec <- gsub(".*\\:", "", common.samples)
-visit.uniq <- unique(visit.vec)
-for (imm in names(gene.module)){
-  print(paste0("Module: ", imm))
-  g <- gene.module[[imm]]
-  df <- data.frame(rna.log[common.samples,g] %>% scale())
-  for (visit in visit.uniq){
-    idx <- which(visit.vec==visit)
-    df.visit <- df[idx,]
-    
-    cor.visit <- cor(df.visit) 
-    cor.visit[upper.tri(cor.visit)] <- NA
-    cor.visit <- cor.visit %>% reshape2::melt() %>% na.omit() %>% mutate(visit=visit, module=imm, n=nrow(df.visit))
-    df.cor <- rbind(df.cor, cor.visit)
-  }
-}
-df.cor <- df.cor %>% group_by(Var1,Var2,module) %>% 
-  summarise(r=fisher_pool(value, n)$pooled_r, p=fisher_pool(value, n)$pooled_p, .groups = "drop") %>% 
-  filter(Var1 != Var2) %>% mutate(p_bon=p*n(), p_bh=p.adjust(p, method="BH"))
-df.cor$Var1 <- as.character(df.cor$Var1)
-df.cor$Var2 <- as.character(df.cor$Var2)
-
-universe_entrez <- bitr(colnames(rna), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
-universe_ids <- universe_entrez$ENTREZID
-
-gene.cluster.list <- list()
-for (imm in names(gene.module)){
-  df <- df.cor %>% filter(module==imm) %>% select(-c(module,p,p_bon,p_bh))  
-  df.net <- df.cor %>% filter(module==imm)
-  
-  df.t <- df 
-  df.t$Var1 <- df$Var2 
-  df.t$Var2 <- df$Var1 
-  
-  df <- rbind(df, df.t) %>%
-    pivot_wider(names_from=c(Var2), values_from=r) %>%
-    column_to_rownames("Var1")
-  
-  df <- df[sort(rownames(df)),]
-  df <- df[, sort(colnames(df))]
-  
-  gene.gene.dist <- 1 - df
-  dist_matrix <- as.dist(gene.gene.dist, diag=T, upper = F)  #It should be st: values~0 <-> interaction, values>>0 <-> no interaction
-  hc <- hclust(dist_matrix, method="ward.D")
-  
-  pdf(paste0(paste0(imm, "-hclust.pdf")), width=0.1176471*length(gene.module[[imm]]), height=4)
-  plot(hc, main = imm, cex=.7)
-  dev.off()
-  
-  if (imm %in% c("Monocytes_classical", "B_Cells")){
-    n.cl <- 2
-  } else {
-    n.cl <- 2
-  }
-  
-  gene.cluster <- cutree(hc, n.cl)
-  gene.cluster.list[[imm]] <- gene.cluster
-  
-  # for (cl in unique(gene.cluster)){
-  #   g <- names(gene.cluster)[gene.cluster==cl]
-  # 
-  #   gene_entrez <- bitr(g, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
-  #   entrez_ids <- gene_entrez$ENTREZID
-  # 
-  #   go_result <- enrichGO(gene = entrez_ids, OrgDb = org.Hs.eg.db, ont = "BP",
-  #                         pvalueCutoff = 0.05, universe=universe_ids)
-  # 
-  #   if (any(go_result@result$p.adjust<0.05)){
-  #     p <- barplot(go_result)+ ggtitle(paste0(imm,"--",cl))
-  #     pdf(paste0(paste0(imm,"--",cl, "-GO.pdf")), width=8, height=4)
-  #     print(p)
-  #     dev.off()
-  #   } else {
-  #     print("no enrichment")
-  #   }
-  # }
-  
-}
-
-
-plot_igraph <- function(df.net, N_EDGE=300){
-  
-  #palette for clusters
-  cluster_colors <- c(
-    "#88CCEE", "#44AA99",  "#D55E00", "#AA4499", "#DDCC77","#888888",
-    "#117733",
-    "#CC6677",  "#882255", "#661100", "#999933",
-    "#6699CC",   "#F0E442", "#0072B2","#332288",
-    "#E69F00", "#56B4E9", "#009E73", "#F57F17", "#5D6D7E"
-  )
-  names(cluster_colors) <- 1:length(cluster_colors)
-  
-  #edge df
-  df.edge <- df.net
-  colnames(df.edge)[colnames(df.edge)=="r"] <- "weight"
-  df.edge <- df.edge %>% arrange(desc(weight)) %>% head(n=N_EDGE)
-  
-  #node df
-  df.node <- data.frame(node=unique(c(df.edge$Var1, df.edge$Var2)))
-  df.node$icc <- icc.df$icc.icc[match(df.node$node, icc.df$var)]
-  
-  #igraph
-  net <- graph_from_data_frame(df.edge , vertices = df.node, directed=F)
-  
-  #clustering
-  cl <- cluster_louvain(net)
-  gene.cluster <- membership(cl)
-  
-  #aes
-  V(net)$cluster <- gene.cluster
-  V(net)$color <- cluster_colors[(V(net)$cluster)]
-  
-  #label for only top nodes for every cluster, by ICC
-  df.node$cluster <- gene.cluster[match(df.node$node, names(gene.cluster))]
-  top.node <- df.node %>% group_by(cluster) %>% arrange(desc(icc)) %>% 
-    summarise(g=list(head(node, n=5))) %>% pull(g) %>% unlist()
-  
-  df.node$label <- ifelse(df.node$node %in% top.node, df.node$node, "")
-  #V(net)$label <-  df.node$label[V(net)$name %>% match(df.node$node)]
-  
-  #plot
-  layout <- layout_nicely(net)
-  p <- plot(net, layout=layout, vertex.size=6, vertex.label.cex=.8,
-            vertex.label.color="black", edge.label.cex=.8,
-            label.family="Arial", main=unique(df.net$module))
-  
-  return(list(p=p, net=net))
-}
-
-fisher_GO <- function(g){
-  #GO
-  GO.obj <- enrichGO(
-    gene = g, 
-    OrgDb = org.Hs.eg.db, 
-    ont = "BP",
-    keyType = "SYMBOL", 
-    pvalueCutoff = 0.05, 
-    qvalueCutoff = 0.05,
-    universe = ensg.symbol$symbol %>% unique()
-  ) %>% simplify()
-  
-  if (any(GO.obj@result$p.adjust<0.05)){
-    df <- GO.obj@result 
-    df <- df[order(df$p.adjust, decreasing=F),] %>% subset(p.adjust<0.05)
-    
-    df$GeneRatio <- sapply(df$GeneRatio, function(x) {
-      parts <- as.numeric(unlist(strsplit(x, "/")))
-      parts[1] / parts[2] })    
-    df$BgRatio <- sapply(df$BgRatio, function(x) {
-      parts <- as.numeric(unlist(strsplit(x, "/")))
-      parts[1] / parts[2] })
-    
-    df$OR <- df$GeneRatio / df$BgRatio
-    
-    df$Description <- factor(df$Description, levels=df$Description[order(df$OR, decreasing=F)])
-    p <- ggplot(df, aes(x=OR, y=Description, size=GeneRatio, color=p.adjust)) + 
-      geom_point() + 
-      geom_vline(xintercept=1, linetype=2) +
-      scale_color_gradientn(colors=c("goldenrod", "gray78"), 
-                            breaks=c(0,0.05,1),
-                            limits=c(0,1),
-                            values = scales::rescale(c(0,0.05,1))) +
-      theme_classic2() +
-      theme(text=element_text(size=16, family="sans"),
-            plot.title = element_text(hjust = 0.5)) +
-      xlab("Odds ratio") + ylab("")
-  } else {
-    p <- ggplot()
-    df <- data.frame()
-  }
-  
-  return(list(p=p, df=df))
-}
-
-df.GO <- data.frame()
-for (pop in names(gene.module)){
-  print(pop)
-  g <- gene.module[[pop]]
-  df <- fisher_GO(g)$df
-  if (nrow(df)>0){
-    df.GO <- rbind(df.GO, data.frame(df, module=pop))
-  }
-}
-
-df.GO <- data.frame()
-for (imm in names(gene.module)){
-  print(imm)
-  df <- df.cor %>% filter(module==imm) 
-  
-  #pdf(paste0(paste0(imm, "-net.pdf")), width=8, height=8)
-  out <- plot_igraph(df, N_EDGE = 200)
-  #dev.off()
-  
-  #retrieve clustering
-  net <- out$net
-  gene.cluster <- setNames(V(net)$cluster, V(net)$name)
-  
-  #GO
-  for (cl in unique(gene.cluster)){
-    g <- names(gene.cluster)[gene.cluster==cl]
-    if (length(g)>10){
-      df <- fisher_GO(g)$df
-      if (nrow(df)>0){
-        df.GO <- rbind(df.GO, data.frame(df, module=imm, cluster=cl))
-      }
-    }
-  }
-}
-
-df.GO$cluster <- as.character(df.GO$cluster)
-ggplot(df.GO) +
-  facet_wrap(~module) +
-  geom_point(aes(x=cluster, y=Description)) +
-  theme_classic()
-
-
-# ICC per module ####
-df.plot <- data.frame()
-for (cl in names(gene.module)){
-  df <- data.frame(gene=gene.module[[cl]], pop=cl)
-  df$icc <- icc.df$icc.icc[match(df$gene, icc.df$var)]
-  df.plot <- rbind(df.plot, df)
-}
-
-top.gene <- df.plot %>% group_by(pop) %>% arrange(desc(icc)) %>% summarise(g=list(head(gene, n=10))) %>% pull(g) %>% unlist()
-df.plot$label <- ifelse(df.plot$gene %in% top.gene, df.plot$gene, "")
-
-df.plot$pop <- factor(df.plot$pop, levels=df.plot %>% group_by(pop) %>% summarise(median_icc=median(icc)) %>% arrange(desc(median_icc)) %>% pull(pop))
-p <- ggplot(df.plot, aes(x=pop, y=icc)) + 
-  geom_violin() +
-  geom_boxplot(width=0.3, outlier.shape = NA) +
-  geom_hline(yintercept=median(icc.df$icc.icc), linetype=2) +
-  geom_text_repel(aes(label=label), size=2) +
-  xlab("") + ylab("ICC") + ggtitle("RNA-seq") + 
-  theme_bw() + 
-  theme(text=element_text(size=12, family="Arial"), plot.title = element_text(hjust = 0.5))
-p
-pdf("ICC-net.pdf", height=6, width=4)
-print(p)
-dev.off()
-
-
-# Genes DE ####
-df.lm <- data.frame()
-counter <- 1
-contrast.list <- list()
-uniq.cl <- unique(primary_cluster$primary_cluster) %>% sort()
-for (n in uniq.cl){
-  vec <- rep(-1, length(uniq.cl))
-  vec[n] <- length(uniq.cl)-1
-  contrast.list[[n]] <- vec/(length(uniq.cl)-1)
-}
-names(contrast.list) <- paste0("Cluster ", uniq.cl, " vs others")
-for (gene in unlist(gene.module)){
-  print(paste0(counter, "/"))
-  df <- data.frame(y=rna.network[,gene],
-                   x=paste0("cluster", primary_cluster$primary_cluster[match(rownames(rna.network), primary_cluster$sample)] ), 
-                   metadata[primary_cluster$sample, c("Gender", "Age_at_Visit")])
-  
-  lmFit <- lm(y ~ 0 + x + Gender + Age_at_Visit, df)
-  emm <- emmeans(lmFit, ~ x)
-  custom_contrasts <- contrast(emm, method = contrast.list)
-  df.contrast <- summary(custom_contrasts) %>% as.data.frame()
-  
-  df.lm <- rbind(df.lm, data.frame(df.contrast, gene=gene))
-  
-  counter <- counter + 1
-}
-
-df.lm$module <- NA
-for (pop in names(gene.module)){
-  df.lm$module[df.lm$gene %in% gene.module[[pop]]] <- pop
-}
-sum(is.na(df.lm$module))
-
-p.list <- vector(mode="list", length(gene.module))
-names(p.list) <- names(gene.module)
-NUM_BINS <- 15
-break_vec <- seq(0, max(df.lm$estimate %>% abs()), length.out=NUM_BINS)
-for (pop in names(gene.module)){
-  df.plot <- df.lm %>% filter(module==pop & p.value<0.05) %>%
-    mutate(interval = cut(estimate %>% abs(), breaks = break_vec)) %>% as.data.frame()
-  df.plot$interval_num <- df.plot$interval %>% as.numeric()
-  if (nrow(df.plot)){
-    df.plot$group <- ifelse(df.plot$estimate>0, "positive", "negative")
-    df <- df.plot %>% group_by(contrast,interval_num,group) %>% summarise(n=n())
-    p.list[[pop]] <- ggplot(df) +
-      facet_wrap(~contrast, nrow=1) +
-      geom_bar(data=df %>% filter(group=="positive"), stat="identity", position="dodge", aes(x=interval_num, y=n), fill="tomato") +
-      geom_bar(data=df %>% filter(group=="negative"), stat="identity", position="dodge", aes(x=interval_num, y=-n), fill="skyblue") +
-      theme_classic() +
-      theme(axis.title.x=element_blank(),
-            axis.text.x=element_blank(),
-            axis.ticks.x=element_blank()) +
-      theme(strip.text = element_blank(), 
-            strip.background = element_blank()) +
-      xlim(0,NUM_BINS-1) +
-      xlab("") + ylab("") + ggtitle(pop)
-  }
-}
-
-ggarrange(plotlist = p.list,nrow=1)
-
-pdf("clust-gene.pdf", height=2, width=8)
-ggarrange(plotlist = p.list,nrow=1)
-dev.off()
-
-
-# Plot major immune frequencies in clusters ####
-df.plot <- cytof.group %>% mutate(across(everything(), ~ 100*rank(.) / n())) %>% 
-  merge(primary_cluster, by.x="row.names", by.y="sample") %>% subset(select=-Row.names) %>%
-  mutate(primary_cluster=as.character(primary_cluster)) %>%
-  reshape2::melt(id.vars="primary_cluster") %>% 
-  filter(variable %in% c("NK_Cells", "TEMRA_CD8", "B_Cells", "Monocytes_classical"))
-
-df.plot$variable <- factor(df.plot$variable, levels=c("NK_Cells", "TEMRA_CD8", "B_Cells", "Monocytes_classical"))
-comparisons <- list(c(1,2), c(1,3), c(2,3))
-p.freq <- ggplot(df.plot, aes(x=primary_cluster, y=value)) +
-  facet_wrap(~variable, nrow=3) +
-  geom_boxplot() +
-  theme(strip.text = element_blank(), 
-        strip.background = element_blank()) +
-  stat_compare_means(method="wilcox.test", comparisons=comparisons, size=3, label="p.signif") +
-  theme_classic()  +
-  theme(strip.background = element_blank(),     # Tar bort facet-bakgrund
-        panel.background = element_blank(),     # Tar bort bakgrund
-        panel.border = element_blank()  ) 
-p.freq
-
-pdf("clustering-freq.pdf", height=6, width=8)
-print(p)
-dev.off()
-
-
-# Main variables per group ####
-df.plot <- cluster1.DEG %>% filter(adj.P.Val<0.05 & logFC>0) %>% rownames_to_column("var") %>% mutate(group="A") %>% 
-  rbind(cluster2.DEG %>% filter(adj.P.Val<0.05 & logFC>0) %>% rownames_to_column("var") %>% mutate(group="B")) %>% 
-  rbind(cluster3.DEG %>% filter(adj.P.Val<0.05 & logFC>0) %>% rownames_to_column("var") %>% mutate(group="C"))
-
-top.genes <- df.plot %>% group_by(group) %>% arrange(desc(logFC)) %>% summarise(g=list(head(var, n=10))) %>% pull(g) %>% unlist()
-df.plot$label <- ifelse(df.plot$var %in% top.genes, df.plot$var, "")
-
-p <- ggplot(df.plot, aes(x=logFC, y=group)) +
-  geom_quasirandom() +
-  geom_hline(aes(yintercept=group), linetype=2) +
-  geom_vline(xintercept=0, linetype=2) +
-  geom_text(aes(label=label), size=2, color="red" ) +
-  theme_classic()
-
-cairo_pdf("DEGs.pdf", height=3, width=10)
-print(p)
-dev.off()
-
-df.plot <- cluster1.DEP %>% filter(adj.P.Val<0.05 & logFC>0) %>% rownames_to_column("var") %>% mutate(group="A") %>% 
-  rbind(cluster2.DEP %>% filter(adj.P.Val<0.05 & logFC>0) %>% rownames_to_column("var") %>% mutate(group="B")) %>% 
-  rbind(cluster3.DEP %>% filter(adj.P.Val<0.05 & logFC>0) %>% rownames_to_column("var") %>% mutate(group="C"))
-
-top.genes <- df.plot %>% group_by(group) %>% arrange(desc(logFC)) %>% summarise(g=list(head(var, n=10))) %>% pull(g) %>% unlist()
-df.plot$label <- ifelse(df.plot$var %in% top.genes, df.plot$var, "")
-
-p <- ggplot(df.plot, aes(x=logFC, y=group)) +
-  geom_quasirandom() +
-  geom_hline(aes(yintercept=group), linetype=2) +
-  geom_vline(xintercept=0, linetype=2) +
-  geom_text(aes(label=label), size=2, color="red" ) +
-  theme_classic()
-p
-
-cairo_pdf("DEPs.pdf", height=3, width=10)
-print(p)
-dev.off()
-
-
-
-
-
-# Map proteomics on a 2D space ####
-library("plot3D")
-library("ggtern")
-
-
-X.proj <- data.frame()
-for (p in colnames(protein)){
-  x <- data.frame(value=protein[rownames(primary_cluster),p], cluster=primary_cluster$primary_cluster) %>% na.omit()
-  pval <- lm(value~cluster, x) %>% anova() %>% as.data.frame() %>% subset(select=`Pr(>F)`) %>% filter(rownames(.) == "cluster") %>% as.numeric()
-  x$Z_value <- scale(x$value %>% as.numeric())
-  x.mean <- x %>% group_by(cluster) %>% summarise(mean_x=mean(value)) %>% 
-    mutate(mean_Z=100*scale(mean_x) %>% as.numeric()) %>%
-    mutate(mean_norm=100*mean_x/sum(mean_x)) %>%
-    mutate(pvalue=pval)
-  
-  X.proj <- rbind(X.proj, data.frame(x.mean, var=p, omic="protein"))
-}
-for (g in colnames(rna.log)){
-  x <- data.frame(value=rna.log[rownames(primary_cluster),g], cluster=primary_cluster$primary_cluster) %>% na.omit()
-  pval <- lm(value~cluster, x) %>% anova() %>% as.data.frame() %>% subset(select=`Pr(>F)`) %>% filter(rownames(.) == "cluster") %>% as.numeric()
-  x$Z_value <- scale(x$value %>% as.numeric())
-  x.mean <- x %>% group_by(cluster) %>% summarise(mean_x=mean(value)) %>% 
-    mutate(mean_Z=100*scale(mean_x) %>% as.numeric()) %>%
-    mutate(mean_norm=100*mean_x/sum(mean_x)) %>%
-    mutate(pvalue=pval)
-  
-  X.proj <- rbind(X.proj, data.frame(x.mean, var=g, omic="rna"))
-}
-for (f in colnames(cytof.group)){
-  x <- data.frame(value=cytof.group[rownames(primary_cluster),f], cluster=primary_cluster$primary_cluster) %>% na.omit()
-  pval <- lm(value~cluster, x) %>% anova() %>% as.data.frame() %>% subset(select=`Pr(>F)`) %>% filter(rownames(.) == "cluster") %>% as.numeric()
-  x$Z_value <- scale(x$value %>% as.numeric())
-  x.mean <- x %>% group_by(cluster) %>% summarise(mean_x=mean(value)) %>% 
-    mutate(mean_Z=100*scale(mean_x) %>% as.numeric()) %>%
-    mutate(mean_norm=100*mean_x/sum(mean_x)) %>%
-    mutate(pvalue=pval)
-  
-  X.proj <- rbind(X.proj, data.frame(x.mean, var=f, omic="frequency"))
-}
-df.3d <- X.proj[seq(1,nrow(X.proj), by=3), "mean_norm", drop=F] %>% 
-  cbind( X.proj[seq(2,nrow(X.proj), by=3), "mean_norm", drop=F] ) %>%
-  cbind( X.proj[seq(3,nrow(X.proj), by=3), "mean_norm", drop=F] ) %>% 
-  setNames(c("x","y", "z")) %>%
-  cbind( X.proj[seq(3,nrow(X.proj), by=3), "var", drop=F] ) %>%
-  cbind( X.proj[seq(3,nrow(X.proj), by=3), "omic", drop=F] )%>%
-  cbind( X.proj[seq(3,nrow(X.proj), by=3), "pvalue", drop=F] )
-
-
-
-ggtern(df.3d %>% mutate(pval.bon=pvalue*n()) %>% filter(pval.bon<0.05), 
-       aes(x = x, y = y, z = z)) +
-  geom_point(size = 3, aes(color=omic), alpha=0.5) +
-  limit_tern(.81,.81,.81) +
-  theme_bw()
-
-
-
-# Map proteomics on a 2D space ####
-library("plot3D")
-library("ggtern")
-
-
-X.proj <- data.frame()
-for (p in colnames(protein)){
-  x <- data.frame(value=protein[rownames(primary_cluster),p], cluster=primary_cluster$primary_cluster) %>% na.omit()
-  x$Z_value <- scale(x$value %>% as.numeric())
-  x.mean <- x %>% group_by(cluster) %>% summarise(mean_x=mean(value)) %>% 
-    mutate(mean_Z=100*scale(mean_x) %>% as.numeric()) %>%
-    mutate(mean_norm=100*mean_x/sum(mean_x))
-  
-  X.proj <- rbind(X.proj, data.frame(x.mean, var=p))
-}
-
-df.3d <- X.proj[seq(1,nrow(X.proj), by=3), "mean_norm", drop=F] %>% 
-  cbind( X.proj[seq(2,nrow(X.proj), by=3), "mean_norm", drop=F] ) %>%
-  cbind( X.proj[seq(3,nrow(X.proj), by=3), "mean_norm", drop=F] ) %>% 
-  setNames(c("x","y", "z")) %>%
-  cbind( X.proj[seq(3,nrow(X.proj), by=3), "var", drop=F] )
-
-scatter3D(df.3d$x, df.3d$y, df.3d$z, bty = "b2", colkey = FALSE, 
-          theta = 90, phi = 0)
-
-fit <- lm(z ~ x + y, df.3d)
-grid.lines = 26
-x.pred <- seq(min(df.3d$x), max(df.3d$x), length.out = grid.lines)
-y.pred <- seq(min(df.3d$y), max(df.3d$y), length.out = grid.lines)
-xy <- expand.grid( x = x.pred, y = y.pred)
-z.pred <- matrix(predict(fit, newdata = xy), 
-                 nrow = grid.lines, ncol = grid.lines)
-fitpoints <- predict(fit)
-
-scatter3D(df.3d$x, df.3d$y, df.3d$z, pch = 18, cex = 2, bty = "b2",
-          theta = 60, phi = 15, ticktype = "detailed",
-          xlab = "A", ylab = "B", zlab = "C",  
-          surf = list(x = x.pred, y = y.pred, z = z.pred,  
-                      facets = NA, fit = fitpoints))
-
-
-
-
-ggtern(df.3d, aes(x = x, y = y, z = z)) +
-  geom_point(size = 3, color = "blue") +
-  theme_bw()
