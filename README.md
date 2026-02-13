@@ -1,9 +1,10 @@
 # Systems-level longitudinal immune profiling reveals individualized immunotypes and genetic associations 
-Authors
+**Authors**
+
 Alberto Zenere1,2#, Xingyue Wang1,2#, Ziyang Tan3, Tadepally Lakshmikanth 3,8,9, Jaromir Mikes3, Yang Chen3, Maria Johansson4, Göran Bergström5,6, Fredrik Edfors7, Mathias Uhlen7, Petter Brodin3,8,9, Wen Zhong1,2,10*
 
+**Affiliations**
 
-Affiliations 
 1 Department of Biomedical and Clinical Sciences, Linköping University, Linköping, Sweden.
 2 Science for Life Laboratory, Linköping University, Linköping, Sweden.
 3 Unit for Clinical Pediatrics, Dept. of Women’s and Children’s Health, Karolinska Institutet, 17165, Solna, Sweden
