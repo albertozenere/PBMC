@@ -1,11 +1,3 @@
-rm(list = ls())
-
-# Setup ####
-path <- .libPaths()
-newpath <- "C:/Users/albze08/Desktop/R/mQTL"
-.libPaths(newpath)
-
-
 pack_R <- c("dplyr","ggplot2","ggrepel","umap", "edgeR", "Rtsne",
             "RColorBrewer", "pheatmap", "tidyverse", "vegan",
             "igraph", "ForceAtlas2", "biomaRt", 
@@ -17,13 +9,10 @@ for (i in 1:length(pack_R)) {
   library(pack_R[i], character.only = TRUE)
 }
 
-setwd("C:/Users/albze08/Desktop/postDoc/PBMC/")
-
 set.seed(1)
 
 
 # Load ####
-
 # Annotation of individuals
 anno <- read.csv("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/Wellness_barcodes.txt", sep="\t", header=T)
 anno <- anno[anno$Sample.type=="Helblod",]
@@ -48,30 +37,11 @@ clinical <- subset(clinical, select=-c(visit, Number, subject_id, Study, Visitda
 #RNA-seq S3WP
 rna_s3wp <- read.table("data/wellness_PBMC_v16_norm.txt", sep="\t", header = T)
 
-#Gather lifestyle
-lifestyle <- read.table("C:/Users/albze08/Desktop/postDoc/genome-metabolome/lifestyle/wellness_lifestyle.txt", header=T)
-str <- strsplit(lifestyle$iid, "_") %>% unlist()
-lifestyle$wellness.id <- str[seq(1,length(str),2)]
-lifestyle$visit <- str[seq(2,length(str),2)] %>% as.character()
-lifestyle$subject <- anno$Subject[match(lifestyle$wellness.id, anno$Wellness.id)]
-lifestyle$id <- paste0(lifestyle$subject, ":", lifestyle$visit)
-rownames(lifestyle) <- lifestyle$id
-lifestyle <- subset(lifestyle, select=-c(iid, wellness.id, subject, visit, id)) %>% na.omit()
-
-#auto-antibody
-autoanti <- read.table("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/rawdata/original.autoantibody.score.txt",
-                       header=T)
-
-rownames(autoanti) <- paste0(autoanti$subject, ":", autoanti$visit)
-autoanti.plate <- autoanti$assay_plate
-autoanti <- subset(autoanti, select=-c(SampleID,subject,barcode,visit,assay_plate))
-
 #Cytof S3WP
 cytof <- read.table("data/original.cytof.txt", sep="\t", header = T)
 rownames(cytof) <- cytof$SampleID
 cytof <- subset(cytof, select=-SampleID)
 rownames(cytof) <- gsub("_", ":", rownames(cytof))
-
 
 # Re-format RNA-seq ####
 gene <- unique(rna_s3wp$ensg_id)
@@ -222,81 +192,19 @@ for (n in 1:ncol(cytof.group)){
 }
 
 
-# ILR transform ####
-nthroot = function(x,n) {
-  (abs(x)^(1/n))*sign(x)
-}
-
-ilr.transform <- function(vec){ #Hron et al. J. Applied Statistics, 2009 Eq.4
-  D <- length(vec)
-  vec.ilr <- rep(0, D-1)
-  for (i in 1:length(vec.ilr)){
-    vec.ilr[i] <- sqrt((D-i)/(D-i+1)) * log((vec[i])/nthroot(prod(vec[(i+1):D]), D-i))
-  }
-  return(vec.ilr)
-}
-
-ilr.matrix <- function(mat){
-  mat.ilr <- matrix(0, nrow(mat), ncol(mat)-1)
-  rownames(mat.ilr) <- rownames(mat)
-  for (n in 1:nrow(mat)){
-    mat.ilr[n,] <- mat[n,] %>% as.numeric() %>% ilr.transform()
-  }
-  return(mat.ilr)
-}
-
-
-clr.transform <- function(vec){
-  D <- length(vec)
-  vec.ln <- log(vec)
-  vec.clr <- vec.ln - (sum(vec.ln))/D
-  
-  # geometric_mean <- exp(mean(log(vec)))
-  # vec.clr <- log(vec / geometric_mean)
-  
-  return(vec.clr)
-}
-
-clr.matrix <- function(mat){
-  mat.clr <- mat
-  for (n in 1:nrow(mat)){
-    mat.clr[n,] <- mat[n,] %>% as.numeric() %>% clr.transform()
-  }
-  return(mat.clr)
-}
-
-
+# Functions ####
 condense_PCA <- function(df, Npca=50){
   pca_result <- prcomp(df, center = F, scale. = F)
   df_pca <- pca_result$x[, 1:Npca]
   return(df_pca)
 }
 
-# UMAP and silhouettte ####
-umap_fun <- function(X, color.UMAP, method="UMAP"){
+tsne_fun <- function(X, color.tsne){
   
-  if (method=="UMAP"){
-    umap_df <- umap(X, n_neighbors = 10, n_components = 2)
-    df.plot <- umap_df$layout %>% as.data.frame()
-    colnames(df.plot)[1:2] <- c("UMAP1", "UMAP2")
-  } else if (method=="MDS") {
-    mds_df <- metaMDS(X, k = 2, trymax = 10)
-    df.plot <- mds_df$points %>% as.data.frame()
-    colnames(df.plot)[1:2] <- c("UMAP1", "UMAP2")
-  } else if (method=="tSNE"){
-    tsne_df <- Rtsne(X, dims = 2, perplexity = 5, verbose = F, max_iter = 500)
-    df.plot <- tsne_df$Y[,1:2] %>% as.data.frame()
-    rownames(df.plot) <- rownames(X)
-    colnames(df.plot)[1:2] <- c("UMAP1", "UMAP2")
-  } else if (method=="PCA"){
-    pca_df <- prcomp(X, center = F, scale. = F)
-    df.plot <- pca_df$x[, 1:2] %>% as.data.frame()
-    rownames(df.plot) <- rownames(X)
-    colnames(df.plot)[1:2] <- c("UMAP1", "UMAP2")
-  } else {
-    print("Method not supported")
-    stopifnot(1<0)
-  }
+   tsne_df <- Rtsne(X, dims = 2, perplexity = 5, verbose = F, max_iter = 500)
+   df.plot <- tsne_df$Y[,1:2] %>% as.data.frame()
+   rownames(df.plot) <- rownames(X)
+   colnames(df.plot)[1:2] <- c("tSNE1", "tSNE2")
   
   df.plot$subject <- metadata$subject_id[match(rownames(df.plot), metadata$id)] %>% as.character()
   df.plot$visit <- metadata$visit[match(rownames(df.plot), metadata$id)]
@@ -313,94 +221,43 @@ umap_fun <- function(X, color.UMAP, method="UMAP"){
   return(list(p=p, df=df.plot))
 }
 
-#Silhouette
-silhouette_fun <- function(df.plot, color.UMAP, method.dist="euc"){
-  ind <- gsub("\\:.*", "", rownames(df.plot))
-  
-  sil <- silhouette(as.numeric(ind), coda.base::dist(df.plot, method=method.dist))
-
-  df.plot <- fviz_silhouette(sil)$data
-  df.plot$cluster <- as.character(df.plot$cluster)
-  
-  df <- df.plot %>% group_by(cluster) %>% summarise(avg.score=mean(sil_width)) %>% as.data.frame()
-  ind.ord <- as.character(df$cluster)[order(df$avg.score, decreasing=T)]
-  
-  df.plot$sample <- paste0(df.plot$cluster, df.plot$name) 
-  sample.ord <- character(0)
-  for (ind in ind.ord){
-    sample.ord <- c(sample.ord, df.plot$sample[df.plot$cluster==ind])
-  }
-  df.plot$sample <- factor(df.plot$sample, levels=sample.ord)
-  
-  p <- ggplot(df.plot, aes(x=sample, y=sil_width, fill=cluster, color=cluster)) + 
-    geom_bar(stat="identity", position="dodge") +
-    geom_hline(yintercept=0) +
-    geom_hline(aes(yintercept=mean(sil_width)), linetype=2, color="red") +
-    theme_classic2() +
-    theme(legend.position="none", axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
-    scale_fill_manual(values=color.UMAP) + scale_color_manual(values=color.UMAP) + 
-    theme(plot.title = element_text(hjust = 0.5), text=element_text(size=12), legend.position="none") +
-    xlab("Sample") + ylab("") +
-    ylim(c(-1,1))
-  
-  return(p)
-}
-
-
 sample.cytof.rna <- intersect(rownames(cytof), rownames(rna)) 
 ind.uniq <- gsub("\\:.*", "", sample.cytof.rna) %>% unique()
-color.UMAP <- grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)] %>% sample(length(ind.uniq))
-color.UMAP <- setNames(color.UMAP, ind.uniq)
+color.tsne <- grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)] %>% sample(length(ind.uniq))
+color.tsne <- setNames(color.tsne, ind.uniq)
 
 cytof.transf <- cytof.group[sample.cytof.rna,] %>% as.data.frame()
 rna.pca <- rna.log[sample.cytof.rna,] %>% condense_PCA(Npca=50) %>% scale() %>% as.data.frame()
 
-method <- "tSNE"
-out.cytof <- umap_fun(cytof.transf %>% scale(), color.UMAP, method=method)
-out.rna <- umap_fun(rna.pca, color.UMAP, method=method)
+out.cytof <- tsne_fun(cytof.transf %>% scale(), color.tsne, method=method)
+out.rna <- tsne_fun(rna.pca, color.tsne, method=method)
 
-p1 <- silhouette_fun(cytof.transf, color.UMAP, method.dist = "ait") + ylab("Silhouette score")
-p2 <- silhouette_fun(rna.pca, color.UMAP)
 
-p <- ggarrange(out.cytof$p + ylab("UMAP2"), out.rna$p,
-               p1, p2, nrow=2, ncol=2)
+p <- ggarrange(out.cytof$p + ylab("tSNE2"), out.rna$p, nrow=1)
 p
 
-pdf("UMAP-silhouette-2.pdf", width=6, height=6)
+pdf("tsne.pdf", width=6, height=6)
 print(p)
 dev.off()
-
 
 #PBMC omics combined
 pbmc.data <- cbind(cytof.transf %>% scale(), rna.pca)
 out.pbmc <- umap_fun(pbmc.data, color.UMAP, method=method)
 
-pdf("UMAP-PBMC.pdf", width=3, height=3)
+pdf("tsne-PBMC.pdf", width=3, height=3)
 out.pbmc$p
 dev.off()
 
-
 # Proteomics t-SNE
 protein.pca <- protein %>% makeX(na.impute = T) %>% condense_PCA(Npca=50)
-out.protein <- umap_fun(protein.pca, color.UMAP, method=method)
+out.protein <- umap_fun(protein.pca, color.tsne, method=method)
 
 
-pdf("UMAP-all.pdf", width=6, height=6)
+pdf("tsne-all.pdf", width=6, height=6)
 ggarrange(out.cytof$p, out.rna$p, out.pbmc$p, out.protein$p, nrow=2, ncol=2)
 dev.off()
 
 
-
-# Show genes most associated with the clustering
-coord.rna <-  out.rna$df
-
-cor.rna.coord <- data.frame(cor1=cor(rna.log[sample.cytof.rna,], coord.rna[sample.cytof.rna,"UMAP1"], method="spearman"),
-                            cor2=cor(rna.log[sample.cytof.rna,], coord.rna[sample.cytof.rna,"UMAP2"], method="spearman"),
-                            gene=colnames(rna.log)) %>% 
-  mutate(cor_tot=abs(cor1)+abs(cor2)) %>% arrange(desc(cor_tot))
-
-cor.rna.coord %>% arrange(desc(abs(cor1))) %>% pull(gene) %>% head(n=20)
-cor.rna.coord %>% arrange(desc(abs(cor2))) %>% pull(gene) %>% head(n=20)
 
 
 # Compare distances between inter-ind visit 1-4, inter-ind visit 1-4 vs 5-6, inter-ind ####
@@ -509,7 +366,6 @@ print(p)
 dev.off()
 
 
-
 df.plot.summ$group <- factor(df.plot.summ$group, levels=c("intra_14", "intra_56", "inter"))
 p <- ggplot(df.plot.summ, aes(x=group, y=d_med)) +
   geom_violin() +
@@ -521,7 +377,6 @@ p
 cairo_pdf("dist_RNA.pdf", width=3, height=3)
 print(p)
 dev.off()
-
 
 
 
@@ -598,8 +453,6 @@ print(paste0("There are ", sum(df.plot$inter<df.plot$intra, na.rm=T), " genes wi
              sum(df.plot$inter>df.plot$intra, na.rm=T), " genes with inter-CV > intra-CV (GOOD)"))
 
 
-
-
 g <- rownames(df.plot)[df.plot$inter>df.plot$intra] 
 gene_entrez <- bitr(g, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
 entrez_ids <- gene_entrez$ENTREZID
@@ -608,7 +461,6 @@ go_result <- enrichGO(gene = entrez_ids, OrgDb = org.Hs.eg.db, ont = "BP", pvalu
 pdf("inter-genes.pdf", width=6, height=3)
 barplot(go_result)
 dev.off()
-
 
 
 # protein CV ####
@@ -633,107 +485,4 @@ p3 <- ggplot(df.plot, aes(x=inter, y=intra)) +
   theme_classic() + 
   theme(plot.title = element_text(hjust = 0.5))
 p3
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-######### OLD ############
-
-# Predict individuals from RNA-seq of visit 5-6 ####
-
-# for each sample, choose the individual who has the avg. shorter distance from visits 1-4
-Npca <- 50
-ind.14 <- gsub("\\:.*", "", sample.cytof.rna) %>% unique()
-
-idx.56 <- which(gsub(".*\\:", "", rownames(rna.log)) %in% c("5","6"))  %>% intersect(which( gsub("\\:.*", "", rownames(rna.log)) %in% ind.14))
-rna.56 <- rna.log[idx.56,]
-
-pca.14 <- prcomp(rna.log[sample.cytof.rna,], center = F, scale. = F)  
-scores.14 <- predict(pca.14, newdata = rna.log[sample.cytof.rna,])[,1:Npca] %>% scale()
-scores.56 <- predict(pca.14, newdata = rna.56)[,1:Npca] %>% scale()
-
-df.pred <- data.frame(sample=rownames(rna.56))
-df.pred$ind <- gsub("\\:.*", "", df.pred$sample)
-df.pred$ind_pred <- NA
-df.plot <- data.frame()
-for (n in 1:nrow(df.pred)){
-  
-  x <- scores.56[n,]
-  d <- data.frame(sample=rownames(scores.14), dist=NA)
-  d$ind <- gsub("\\:.*", "", d$sample)
-  for (k in 1:nrow(d)){
-    d$dist[k] <- sqrt(sum((scores.14[k,] - x)^2))
-  }
-  
-  d.summ <- d %>% group_by(ind) %>% summarise(mean_dist=mean(dist)) %>% as.data.frame()
-  df.pred$ind_pred[n] <- d.summ$ind[which.min(d.summ$mean_dist)]
-  
-  df.plot <- rbind(df.plot, data.frame(sampleA=df.pred$sample[n], sampleB=d$sample, dist=d$dist))
-}
-
-df.plot$indA <- gsub("\\:.*", "", df.plot$sampleA)
-df.plot$indB <- gsub("\\:.*", "", df.plot$sampleB)
-df.plot.summ <- df.plot %>% filter(indA==indB) %>% group_by(sampleA, indB) %>% summarise(avg_dist=mean(dist)) %>% as.data.frame()
-df.plot.summ <- df.plot %>% group_by(sampleA, indA, indB) %>% summarise(avg_dist=mean(dist)) %>% as.data.frame()
-
-sample.ord <- df.plot.summ %>% filter(indA==indB) %>% arrange(avg_dist) %>% pull(sampleA)
-df.plot.summ$sampleA <- factor(df.plot.summ$sampleA, levels=sample.ord)
-p <- ggplot(df.plot.summ %>% filter(indA!=indB), aes(y=sampleA, x=avg_dist)) +
-  geom_violin(fill="gray68") + 
-  geom_point(data=df.plot.summ %>% filter(indA==indB), aes(y=sampleA, x=avg_dist), color="black", size=1, shape=1) +
-  theme_classic() +
-  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank())
-p
-pdf("dist-56.pdf", height=5, width=3)
-print(p)
-dev.off()
-
-# Silhouette
-X <- rbind(scores.14, scores.56)
-ind <- gsub("\\:.*", "", rownames(X))
-
-sil <- silhouette(as.numeric(ind), dist(X))
-
-df.plot <- fviz_silhouette(sil)$data
-df.plot$cluster <- as.character(df.plot$cluster)
-df.plot$id <- rownames(X)[as.numeric(as.character(df.plot$name))]
-df.plot$visit <- gsub(".*\\:", "", df.plot$id)
-
-df <- df.plot %>% group_by(cluster) %>% summarise(avg.score=mean(sil_width)) %>% as.data.frame()
-ind.ord <- as.character(df$cluster)[order(df$avg.score, decreasing=T)]
-
-df.plot$sample <- paste0(df.plot$cluster, df.plot$name) 
-sample.ord <- character(0)
-for (ind in ind.ord){
-  sample.ord <- c(sample.ord, df.plot$sample[df.plot$cluster==ind])
-}
-df.plot$sample <- factor(df.plot$sample, levels=sample.ord)
-
-p <- ggplot(df.plot %>% filter(visit %in% c("5", "6")), aes(x=sample, y=sil_width, fill=cluster, color=cluster)) + 
-  geom_bar(stat="identity", position="dodge") +
-  geom_hline(yintercept=0) +
-  geom_hline(aes(yintercept=mean(sil_width)), linetype=2, color="red") +
-  theme_classic2() +
-  theme(legend.position="none", axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
-  scale_fill_manual(values=color.UMAP) + scale_color_manual(values=color.UMAP) + 
-  theme(plot.title = element_text(hjust = 0.5), text=element_text(size=12, family="Arial"), legend.position="none") +
-  xlab("Sample") + ylab("") +
-  ylim(c(-1,1))
-p
-
-cairo_pdf("UMAP-visit56.pdf", width=3, height=3)
-print(p)
-dev.off()
 
