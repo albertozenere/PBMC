@@ -1,9 +1,3 @@
-rm(list = ls())
-
-# Setup ####
-path <- .libPaths()
-newpath <- "C:/Users/albze08/Desktop/R/mQTL"
-.libPaths(newpath)
 
 pack_R <- c("dplyr","ggplot2","ggrepel","umap", "edgeR",
             "RColorBrewer", "pheatmap", "tidyverse",
@@ -35,12 +29,6 @@ protein_data$id <- paste0(protein_data$subject_id, ":", protein_data$visit)
 rownames(protein_data) <- protein_data$id
 protein_data <- subset(protein_data, select=-c(iid, sample, visit, id, subject_id))
 
-#HPA annotation
-hpa.cytokine <- read.table("HPA/cytokines/cytokine.tsv", sep="\t", header=T)
-hpa.cytokine <- hpa.cytokine[grep("secreted", hpa.cytokine$Protein.class), ]
-hpa <- read.table("HPA/all/proteinatlas.tsv", sep="\t", header=T)
-cytokine <- protein_data[, colnames(protein_data) %in% hpa.cytokine$Gene]
-
 # metadata
 metadata <- read.csv("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/Metadata/complete.clinical.data.wellness.t2d.txt", sep="\t", header=T)
 metadata <- metadata[- which(metadata$Study=="T2D"), ]
@@ -61,62 +49,11 @@ clinical <- subset(clinical, select=-c(visit, Number, subject_id, Study, Visitda
 #RNA-seq S3WP
 rna_s3wp <- read.table("data/wellness_PBMC_v16_norm.txt", sep="\t", header = T)
 
-#Gather lifestyle
-lifestyle <- read.table("C:/Users/albze08/Desktop/postDoc/genome-metabolome/lifestyle/wellness_lifestyle.txt", header=T)
-str <- strsplit(lifestyle$iid, "_") %>% unlist()
-lifestyle$wellness.id <- str[seq(1,length(str),2)]
-lifestyle$visit <- str[seq(2,length(str),2)] %>% as.character()
-lifestyle$subject <- anno$Subject[match(lifestyle$wellness.id, anno$Wellness.id)]
-lifestyle$id <- paste0(lifestyle$subject, ":", lifestyle$visit)
-rownames(lifestyle) <- lifestyle$id
-lifestyle <- subset(lifestyle, select=-c(iid, wellness.id, subject, visit, id)) %>% na.omit()
-
-#auto-antibody
-autoanti <- read.table("C:/Users/albze08/Desktop/postDoc/genome-protein/data/WELLNESS/Wellness/Data/rawdata/original.autoantibody.score.txt",
-                       header=T)
-
-rownames(autoanti) <- paste0(autoanti$subject, ":", autoanti$visit)
-autoanti.plate <- autoanti$assay_plate
-autoanti <- subset(autoanti, select=-c(SampleID,subject,barcode,visit,assay_plate))
-
 #Cytof S3WP
 cytof <- read.table("data/original.cytof.txt", sep="\t", header = T)
 rownames(cytof) <- cytof$SampleID
 cytof <- subset(cytof, select=-SampleID)
 rownames(cytof) <- gsub("_", ":", rownames(cytof))
-
-#Annotation CyTOF files
-macro.anno <- read.csv("data/cell_pop_codes.txt", sep="\t")
-macro.anno.my <- macro.anno[match(colnames(cytof), macro.anno$Populations),]
-macro.anno.my$Canonical_Pop[grep("CD4pos", macro.anno.my$Populations)] <- "CD4pos"
-macro.anno.my$Canonical_Pop[grep("CD8pos", macro.anno.my$Populations)] <- "CD8pos"
-macro.anno.my$Canonical_Pop[grep("CD56pos", macro.anno.my$Populations)] <- "CD56pos"
-macro.anno.my$Canonical_Pop[grep("Naive_B_cells", macro.anno.my$Populations)] <- "Naive_B_cells"
-macro.anno.my$Canonical_Pop[grep("CD4pos_naive", macro.anno.my$Populations)] <- "CD4pos_naive"
-macro.anno.my$Canonical_Pop[grep("CD8pos_naive", macro.anno.my$Populations)] <- "CD8pos_naive"
-rownames(macro.anno.my) <- macro.anno.my$Populations
-macro.anno.my <- subset(macro.anno.my, select=-Populations)
-colnames(macro.anno.my) <- c("family")
-
-#HPA elevated genes
-Bmemory <- read.table("HPA/memory b cell elevated.tsv", sep="\t", header=T)
-intermediate <- read.table("HPA/intermediate monocyte elevated.tsv", sep="\t", header=T)
-classical <- read.table("HPA/classical monocyte elevated.tsv", sep="\t", header=T)
-myeloid <- read.table("HPA/myeloid elevated.tsv", sep="\t", header=T)
-Bnaive <- read.table("HPA/naive b cell elevated.tsv", sep="\t", header=T)
-plasmacytoid <- read.table("HPA/plasmacytoid elevated.tsv", sep="\t", header=T)
-nonclassical <- read.table("HPA/nonclassical monocyte elevated.tsv", sep="\t", header=T)
-basophil <- read.table("HPA/basophil elevated.tsv", sep="\t", header=T)
-cd8_naive <- read.table("HPA/naive cd8 elevated.tsv", sep="\t", header=T)
-cd4_naive <- read.table("HPA/naive cd4 elevated.tsv", sep="\t", header=T)
-cd8_memory <- read.table("HPA/memory cd8 elevated.tsv", sep="\t", header=T)
-cd4_memory <- read.table("HPA/memory cd4 elevated.tsv", sep="\t", header=T)
-
-monocytes <- rbind(intermediate,classical,nonclassical) %>% distinct()
-DC <- rbind(plasmacytoid, myeloid) %>% distinct()
-
-HPA.genes <- c(Bmemory$Ensembl, monocytes$Ensembl,DC$Ensembl,Bnaive$Ensembl,
-               cd8_naive$Ensembl,cd4_naive$Ensembl,cd8_memory$Ensembl,cd4_memory$Ensembl) %>% unique()
 
 # Re-format RNA-seq ####
 gene <- unique(rna_s3wp$ensg_id)
@@ -389,3 +326,4 @@ for (n.gene in 1:ncol(rna.log)){
 }
 
 saveRDS(df.net, "Ensemble_ILR-306025.RDS")
+
