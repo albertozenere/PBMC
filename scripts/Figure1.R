@@ -1,11 +1,3 @@
-rm(list = ls())
-
-# Setup ####
-path <- .libPaths()
-newpath <- "C:/Users/albze08/Desktop/R/mQTL"
-.libPaths(newpath)
-
-
 pack_R <- c("dplyr","ggplot2","ggrepel","umap", "edgeR",
             "RColorBrewer", "pheatmap", "tidyverse",
             "igraph", "biomaRt", "ggbeeswarm",
@@ -16,13 +8,9 @@ pack_R <- c("dplyr","ggplot2","ggrepel","umap", "edgeR",
 for (i in 1:length(pack_R)) {
   library(pack_R[i], character.only = TRUE)
 }
-
-setwd("C:/Users/albze08/Desktop/postDoc/PBMC/")
-
 set.seed(1)
 
-
-# metadata
+# Load metadata ####
 metadata <- read.csv("data/S3_Wellness_visit1_6_Clin_200109.txt", sep="\t", header=T)
 metadata$visit <- gsub("Visit ", "", metadata$VisitName)
 metadata$VisitName <- NULL
@@ -50,15 +38,12 @@ p2 <- ggplot(metadata %>% filter(visit==1), aes(x=1, y=Age_at_Visit, fill=Gender
   geom_quasirandom(size=2, shape=21, width=0.2) +
   geom_boxplot(fill=NA, outlier.shape=NA, width=0.3) +
   scale_fill_manual(values=c(m="#2daaaeff", f="#c93e34ff")) +
-  #geom_violin(fill=NA) +
   theme_classic() + theme(legend.position="none")
 p2
 
 pdf("age-baseline.pdf", height=3, width=2)
 print(p2)
 dev.off()
-
-
 
 ind.ord <- metadata %>% group_by(subject_id) %>% summarise(mean_BMI=mean(BMI), id_vec=list(id)) %>% arrange(mean_BMI) %>% pull(subject_id) 
 df.plot.bmi <- metadata
@@ -99,14 +84,12 @@ dev.off()
 p4 <- ggplot(metadata, aes(x=1, y=HDL)) +
   geom_quasirandom(size=2, alpha=.5) +
   geom_boxplot(fill=NA, outlier.shape=NA) +
-  #geom_violin(fill=NA) +
   theme_classic()
 p4
 
 p5 <- ggplot(metadata, aes(x=1, y=SBP)) +
   geom_quasirandom(size=2, alpha=.5) +
   geom_boxplot(fill=NA, outlier.shape=NA) +
-  #geom_violin(fill=NA) +
   theme_classic()
 p5
 
@@ -117,7 +100,7 @@ pdf("data-overview.pdf", height=3, width=10)
 print(p)
 dev.off()
   
-# ridge of frequencies ####
+# Ridge of frequencies ####
 library("ggridges")
 library("scales")
 pop.palette <- c(NK_Cells="turquoise",           
@@ -143,9 +126,8 @@ p <- ggplot(df.plot %>% filter(value > 1e-5),
   scale_fill_manual(values = pop.palette) +
   scale_x_continuous(
     trans = 'log10',
-    breaks = as.numeric(outer(1:9, 10^(-5:0), `*`)),  # 10 ticks per decade
+    breaks = as.numeric(outer(1:9, 10^(-5:0), `*`)),  
     labels = function(x) {
-      # label only pure powers of 10
       labs <- rep("", length(x))
       powers <- 10^(-5:0)
       labs[x %in% powers] <- parse(text = paste0("10^", log10(powers[x %in% powers])))
@@ -161,6 +143,3 @@ p
 pdf("freq-major.pdf", width=5, height = 6)
 print(p)
 dev.off()
-
-
-
