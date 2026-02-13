@@ -9,7 +9,6 @@ for (i in 1:length(pack_R)) {
   library(pack_R[i], character.only = TRUE)
 }
 
-
 set.seed(1)
 
 
@@ -18,7 +17,6 @@ set.seed(1)
 # Annotation of individuals
 anno <- read.csv("data/Wellness_barcodes.txt", sep="\t", header=T)
 anno <- anno[anno$Sample.type=="Helblod",]
-
 
 # Proteomics
 protein_data <- read.csv("data/wellness_norm_final_794_wj_alternative_anno.txt", sep="\t", header=T)
@@ -32,9 +30,7 @@ rownames(protein) <- protein$id
 protein <- protein[,-1]
 
 protein <- makeX(protein, na.impute = T)
-
 rm(protein.long)
-
 
 # metadata
 metadata <- read.csv("data/complete.clinical.data.wellness.t2d.txt", sep="\t", header=T)
@@ -1835,4 +1831,5 @@ writeData(wb, "DPEA, cluster C vs others", cluster3.DEP %>% rownames_to_column("
 writeData(wb, "Clinical variables", df)
 
 saveWorkbook(wb, "Supplementary Table 4.xlsx", overwrite = TRUE)
+
 
